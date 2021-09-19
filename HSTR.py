@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
 from model.IFNet import IFNet
 from model.warplayer import warp
 import torch.nn.functional as F
@@ -22,19 +23,24 @@ class Model():
         
         lfr_img0 = imgs[:, :, :3]
         lfr_img1 = imgs[:, :, 3:6]
-        lfr_img2 = imgs[:, :, 6:9]
-        hfr_img0 = imgs[:, :, 9:12]
-        hfr_img1 = imgs[:, :, 12:15]
+        hfr_img0 = imgs[:, :, 6:9]
+        hfr_img1 = imgs[:, :, 9:12]
+        hfr_img2 = imgs[:, :, 12:15]
         
-        for entry in timestamps:
-            print(entry)
         
-        # hfr_prev_to_next_flow, _ = self.flownet(torch.cat((hfr_img0, hfr_img1),1))
-        # hfr_next_to_prev_flow, _ = self.flownet(torch.cat((hfr_img1, hfr_img0),1))
-        # lfr_prev_to_mid_flow,  _ = self.flownet(torch.cat((lfr_img0, lfr_img1),1))
-        # lfr_mid_to_next_flow,  _ = self.flownet(torch.cat((lfr_img1, lfr_img2),1))
+        # Moving images to torch tensors 
+        lfr_img0 = torch.from_numpy(np.transpose(lfr_img0, (2,0,1))).to(device, non_blocking=True).unsqueeze(0).float() / 255.
+        lfr_img1 = torch.from_numpy(np.transpose(lfr_img1, (2,0,1))).to(device, non_blocking=True).unsqueeze(0).float() / 255.
+        hfr_img0 = torch.from_numpy(np.transpose(hfr_img0, (2,0,1))).to(device, non_blocking=True).unsqueeze(0).float() / 255.
+        hfr_img1 = torch.from_numpy(np.transpose(hfr_img1, (2,0,1))).to(device, non_blocking=True).unsqueeze(0).float() / 255.
+        hfr_img2 = torch.from_numpy(np.transpose(hfr_img2, (2,0,1))).to(device, non_blocking=True).unsqueeze(0).float() / 255.
         
-        # print(hfr_prev_to_next_flow.shape)
-        # print(hfr_next_to_prev_flow.shape)
-        # print(lfr_prev_to_mid_flow.shape)
-        # print(lfr_mid_to_next_flow.shape)
+        lfr_prev_to_next_flow,  _ = self.flownet(torch.cat((lfr_img0, lfr_img1),1))
+        lfr_next_to_prev_flow,  _ = self.flownet(torch.cat((lfr_img1, lfr_img0),1))
+        
+        hfr_prev_to_t_flow, _ = self.flownet(torch.cat((hfr_img0, hfr_img1),1))
+        hfr_t_to_next_flow, _ = self.flownet(torch.cat((hfr_img1, hfr_img2),1))
+        
+            
+            
+            

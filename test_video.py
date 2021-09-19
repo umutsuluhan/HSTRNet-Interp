@@ -5,65 +5,43 @@ import matplotlib.pyplot as plt
 from HSTR import Model
 import time
 
+def getting_input(video):
+    cap = cv2.VideoCapture(video)
+    fps = cap.get(cv2.CAP_PROP_FPS)   
+    tot_frame = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    
+    #Getting timestamp of each frames
+    timestamps = [cap.get(cv2.CAP_PROP_POS_MSEC)]
+    proc_timestamps = [0.0]
+    frames = []
+    while(cap.isOpened()):
+        frame_exists, curr_frame = cap.read()
+        if(frame_exists):
+            timestamps.append(cap.get(cv2.CAP_PROP_POS_MSEC))
+            proc_timestamps.append(timestamps[-1] + 1000/fps)
+            frames.append(curr_frame)
+        else:
+             break
+            
+    cap.release()
+    
+    return frames, proc_timestamps, tot_frame, fps
+
 if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")    
 
-    lfr_video = "videos/demo.mp4"
-    hfr_video = "videos/demo_2X_50fps.mp4"
+    lfr_video = "videos/demo.mp4"             # Low frame rate video
+    hfr_video = "videos/demo_2X_50fps.mp4"    # High frame rate video
 
-    hstr_model = Model()
+    hstr_model = Model()                      # Initializing the model
 
-    start_time = time.time()
-
-    #Getting fps and total frame number of low frame rate video
-    lfr_video_capture = cv2.VideoCapture(lfr_video)
-    lfr_fps = lfr_video_capture.get(cv2.CAP_PROP_FPS)   
-    lfr_tot_frame = lfr_video_capture.get(cv2.CAP_PROP_FRAME_COUNT)
+    # Processing input videos
+    lfr_frames, lfr_proc_timestamps, lfr_tot_frame, lfr_fps = getting_input(lfr_video)  
+    hfr_frames, hfr_proc_timestamps, hfr_tot_frame, hfr_fps = getting_input(hfr_video)
     
-    #Getting timestamp of each frames
-    lfr_timestamps = [lfr_video_capture.get(cv2.CAP_PROP_POS_MSEC)]
-    lfr_proc_timestamps = []
-    lfr_frames = []
-    while(lfr_video_capture.isOpened()):
-        frame_exists, curr_frame = lfr_video_capture.read()
-        if(frame_exists):
-            lfr_timestamps.append(lfr_video_capture.get(cv2.CAP_PROP_POS_MSEC))
-            lfr_proc_timestamps.append(lfr_timestamps[-1] + 1000/lfr_fps)
-            lfr_frames.append(curr_frame)
-        else:
-             break
-            
-    lfr_video_capture.release()
-    
-    #Getting fps and total frame number of high frame rate video
-    hfr_video_capture = cv2.VideoCapture(hfr_video)
-    hfr_fps = hfr_video_capture.get(cv2.CAP_PROP_FPS)
-    hfr_tot_frame = hfr_video_capture.get(cv2.CAP_PROP_FRAME_COUNT)
-    
-    #Getting timestamp of each frames
-    hfr_timestamps = [hfr_video_capture.get(cv2.CAP_PROP_POS_MSEC)]
-    hfr_proc_timestamps = []
-    hfr_frames = []
-    while(hfr_video_capture.isOpened()):
-        frame_exists, curr_frame = hfr_video_capture.read()
-        if(frame_exists):
-            hfr_timestamps.append(hfr_video_capture.get(cv2.CAP_PROP_POS_MSEC))
-            hfr_proc_timestamps.append(hfr_timestamps[-1] + 1000/lfr_fps)
-            hfr_frames.append(curr_frame)
-        else:
-            break
-    
-    hfr_video_capture.release()
-   
-    finish_time = time.time()
-
+    # Concatenating input images into one to feed to the network
     imgs = np.concatenate((lfr_frames[0], lfr_frames[1], hfr_frames[0], hfr_frames[1], hfr_frames[2]), 2)
-    timestamps = []
-    timestamps.append(lfr_proc_timestamps[0])
-    timestamps.append(lfr_proc_timestamps[1])
-    timestamps.append(hfr_proc_timestamps[0])
-    timestamps.append(hfr_proc_timestamps[1])
-    timestamps.append(hfr_proc_timestamps[2])
     
-    hstr_model.inference(imgs, timestamps)
+    # Feeding images to the model
+    hstr_model.inference(imgs, hfr_proc_timestamps[:3])
