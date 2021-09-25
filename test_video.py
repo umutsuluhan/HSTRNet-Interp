@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
-from HSTR import Model
+from HSTR_FSS import Model
 import time
 
 def getting_input(video):
@@ -31,8 +31,8 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")    
 
-    lfr_video = "videos/demo.mp4"             # Low frame rate video
-    hfr_video = "videos/demo_2X_50fps.mp4"    # High frame rate video
+    lfr_video = "videos/car_vid.mp4"             # Low frame rate video
+    hfr_video = "videos/car_vid_2X_12fps.mp4"    # High frame rate video
 
     hstr_model = Model()                      # Initializing the model
 
