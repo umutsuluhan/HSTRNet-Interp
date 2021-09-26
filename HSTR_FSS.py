@@ -7,7 +7,7 @@ from model.IFNet import IFNet
 from model.warplayer import warp
 import torch.nn.functional as F
 
-device = 'cpu' #torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.cuda.empty_cache()
 
 class DownSampling(nn.Module):
@@ -345,5 +345,5 @@ class Model():
         result = Ft_p.detach().numpy()
         result = result[0,:]
         result = np.transpose(result, (1, 2, 0))
-        cv2.imshow("result", result)
-        cv2.waitKey(0)
+        
+        return result
