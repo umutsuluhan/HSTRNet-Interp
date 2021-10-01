@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
-from HSTR_FSS import Model
+from model.FastRIFE_Super_Slomo.HSTR_FSS import Model
 import time
 
 

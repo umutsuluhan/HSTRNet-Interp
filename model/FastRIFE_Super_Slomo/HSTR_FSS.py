@@ -3,8 +3,6 @@ import torch.nn as nn
 import cv2
 import time
 import numpy as np
-from model.IFNet import IFNet
-from model.warplayer import warp
 import torch.nn.functional as F
 
 device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -202,12 +200,10 @@ class backWarp(nn.Module):
 class Model():
 
     def __init__(self):
-        self.flownet = IFNet()
         self.unet = UNet(4, 32)
         self.arbitrary_time_f_int = UNet(29, 5)
 
         self.arbitrary_time_f_int.to(device)
-        self.flownet.to(device)
         self.unet.to(device)
 
     def optical_flow_est(self, x):
@@ -237,7 +233,7 @@ class Model():
     def intermediate_flow_est(self, x, t):
 
         F_0_1 = x[:, :2].cpu().numpy()
-        F_1_0 = x[:, :2].cpu().numpy()
+        F_1_0 = x[:, 2:4].cpu().numpy()
 
         temp = -t * (1 - t)
         fCoeff = [temp, t * t, (1 - t) * (1 - t), temp]
