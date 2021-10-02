@@ -2,8 +2,9 @@ import cv2
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
-from model.FastRIFE_Super_Slomo.HSTR_FSS import Model
-import time
+from model.FastRIFE_Super_Slomo.HSTR_FSS import HSTR_FSS
+from model.FastRIFE_Super_Slomo.HSTR_LKSS import HSTR_LKSS
+
 
 
 def getting_input(video):
@@ -36,7 +37,7 @@ if __name__ == '__main__':
     lfr_video = "videos/car_vid.mp4"             # Low frame rate video
     hfr_video = "videos/car_vid_2X_12fps.mp4"    # High frame rate video
 
-    hstr_model = Model()                      # Initializing the model
+    hstr_model = HSTR_LKSS()                     # Initializing the model
 
     # Processing input videos
     lfr_frames, lfr_proc_timestamps, lfr_tot_frame, lfr_fps = getting_input(

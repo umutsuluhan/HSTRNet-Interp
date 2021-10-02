@@ -1,4 +1,4 @@
-# Model implementation of Farneback + Super_Slomo
+# Model implementation of Lucas Kanade + Super_Slomo
 
 import torch
 import torch.nn as nn
@@ -8,13 +8,14 @@ import math
 import numpy as np
 import sys
 import torch.nn.functional as F
+from scipy.sparse import csr_matrix
 from .unet_model import UNet
 from .backwarp import backWarp
 
 device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
 torch.cuda.empty_cache()
 
-class HSTR_FSS():
+class HSTR_LKSS():
 
     def __init__(self):
         self.unet = UNet(4, 32)
@@ -23,13 +24,19 @@ class HSTR_FSS():
         self.unet.to(device)
 
     def optical_flow_est(self, x):
-        
-        # Optical flow method which employs Farneback method to extract flow of each pixel in the image (dense optical flow).
-        
         x = F.interpolate(x, scale_factor=0.5, mode="bilinear",
                           align_corners=False)
         img0 = x[:, :3].cpu().numpy()
         img1 = x[:, 3:].cpu().numpy()
+
+        feature_params = dict(maxCorners=100,
+                              qualityLevel=0.1,
+                              minDistance=10,
+                              blockSize=7)
+
+        lk_params = dict(winSize=(15, 15),
+                         maxLevel=0,
+                         criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
         num_samples, _, x, y = img0.shape
         flow_batch = np.empty((0, 2, x, y))
@@ -41,13 +48,24 @@ class HSTR_FSS():
             img1_single = cv2.cvtColor(img1_single, cv2.COLOR_BGR2GRAY)
 
             start2 = time.time()
-            flow_single = cv2.calcOpticalFlowFarneback(img0_single, img1_single, None, pyr_scale=0.2, levels=3,
-                                                       winsize=15, iterations=1, poly_n=1, poly_sigma=1.2, flags=0)
+            p0 = cv2.goodFeaturesToTrack(img0_single, mask=None, **feature_params)
+            if p0 is None:
+                p0 = np.ones((1, 1, 2)).astype(np.float32)
+
+            img0_single = np.uint8(img0_single * 255.0)
+            img1_single = np.uint8(img1_single * 255.0)
+            flow_single, _st, _err = cv2.calcOpticalFlowPyrLK(img0_single, img1_single, p0, None, **lk_params)
             end2 = time.time()
+
+            p0 = p0.reshape(-1, 2)
+            flow_x = csr_matrix((flow_single[:,:,0].reshape(-1), (p0[:,1], p0[:,0])), shape=(x, y)).toarray().reshape(1, x, y)
+            flow_y = csr_matrix((flow_single[:,:,1].reshape(-1), (p0[:,1], p0[:,0])), shape=(x, y)).toarray().reshape(1, x, y)
+            flows = np.append(flow_x, flow_y, axis=0)
+
             flow_time.append((end2 - start2) * 1000)
-            flow_single = flow_single.reshape(1, 2, x, y)
+            flow_single = flows.reshape(1, 2, x, y)
             flow_batch = np.append(flow_batch, flow_single, axis=0)
-        return torch.tensor(flow_batch, dtype=torch.float, device=device)
+        return torch.tensor(flow_batch, dtype=torch.float)
 
     def intermediate_flow_est(self, x, t):
 
@@ -64,13 +82,19 @@ class HSTR_FSS():
 
     def inference(self, imgs, timestamps, training=False):
 
-        t = 0.5                        # Timestamp of the generated frame.  
+        t = 0.5        
 
-        lfr_img0 = imgs[:, :, :3]      # lfr_img0 = hr(t-1)
-        lfr_img1 = imgs[:, :, 3:6]     # lfr_img1 = hr(t+1) 
-        hfr_img0 = imgs[:, :, 6:9]     # hfr_img0 = lr(t-1)
-        hfr_img1 = imgs[:, :, 9:12]    # hfr_img1 = lr(t)
-        hfr_img2 = imgs[:, :, 12:15]   # hfr_img2 = lr(t+1)
+        # lfr_img0 = lr(t-1)
+        # lfr_img1 = lr(t)
+        # lfr_img2 = lr(t+1)
+        # hfr_img0 = hr(t-1)
+        # hfr_img1 = hr(t+1)
+
+        lfr_img0 = imgs[:, :, :3]      
+        lfr_img1 = imgs[:, :, 3:6]
+        hfr_img0 = imgs[:, :, 6:9]
+        hfr_img1 = imgs[:, :, 9:12]
+        hfr_img2 = imgs[:, :, 12:15]
 
         # Moving images to torch tensors
         lfr_img0 = torch.from_numpy(np.transpose(lfr_img0, (2, 0, 1))).to(
