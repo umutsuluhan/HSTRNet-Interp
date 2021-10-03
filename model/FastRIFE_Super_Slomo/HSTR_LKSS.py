@@ -12,8 +12,7 @@ from scipy.sparse import csr_matrix
 from .unet_model import UNet
 from .backwarp import backWarp
 
-device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
-torch.cuda.empty_cache()
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class HSTR_LKSS():
 

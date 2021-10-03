@@ -37,15 +37,14 @@ if __name__ == '__main__':
     lfr_video = "videos/car_vid.mp4"             # Low frame rate video
     hfr_video = "videos/car_vid_2X_12fps.mp4"    # High frame rate video
 
-    hstr_model = HSTR_LKSS()                     # Initializing the model
+    hstr_model = HSTR_FSS()                     # Initializing the model
+    HSTR_FSS.to(device)
 
     # Processing input videos
     lfr_frames, lfr_proc_timestamps, lfr_tot_frame, lfr_fps = getting_input(
         lfr_video)
     hfr_frames, hfr_proc_timestamps, hfr_tot_frame, hfr_fps = getting_input(
         hfr_video)
-
-    print(lfr_fps)
 
     # Concatenating input images into one to feed to the network
     #imgs = np.concatenate((lfr_frames[0], lfr_frames[1], hfr_frames[0], hfr_frames[1], hfr_frames[2]), 2)
