@@ -169,10 +169,13 @@ class HSTR_FSS():
         padding2 = nn.ReplicationPad2d((0, -pad2, -pad1, 0))
         Ft_p = padding2(Ft_p)
 
-        result = Ft_p.detach().numpy()
-        result = result[0, :]
-        result = np.transpose(result, (1, 2, 0))
-        # cv2.imshow("win", result)
-        # cv2.waitKey(100)
+        if training == False:
+            result = Ft_p.detach().numpy()
+            result = result[0, :]
+            result = np.transpose(result, (1, 2, 0))
+            # cv2.imshow("win", result)
+            # cv2.waitKey(100)
+        else:
+            result = Ft_p
 
         return result

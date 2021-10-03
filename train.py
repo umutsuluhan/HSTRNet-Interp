@@ -42,8 +42,11 @@ def train(model):
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100, 150], gamma=0.1)
     
     print('training...')
+    
+    L1_losses = list()
+    
     time_stamp = time.time()
-    for epoch in range(200):
+    for epoch in range(args.epoch):
         for data_HR, data_LR in zip(train_data_HR, train_data_LR):
             data_time_interval = time.time() - time_stamp
             time_stamp = time.time()
@@ -63,8 +66,14 @@ def train(model):
             imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
             
             pred = model.inference(imgs, [], training=True)
-            cv2.imshow("win", pred)
-            cv2.waitKey(2000)
+            # cv2.imshow("win", pred)
+            # cv2.waitKey(2000)
+           
+            
+            L1_loss = L1_lossFn(pred, gt)
+            L1_loss.backward()
+            optimizer.step()
+            L1_losses.append(L1_loss)
             
             train_time_interval = time.time() - time_stamp
             time_stamp = time.time()
