@@ -12,14 +12,12 @@ from scipy.sparse import csr_matrix
 from .unet_model import UNet
 from .backwarp import backWarp
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class HSTR_LKSS():
 
     def __init__(self):
-        self.unet = UNet(4, 32)
-        self.arbitrary_time_f_int = UNet(15, 3)
-        self.arbitrary_time_f_int.to(device)
+        self.unet = UNet(15, 3)
         self.unet.to(device)
 
     def optical_flow_est(self, x):
@@ -81,125 +79,90 @@ class HSTR_LKSS():
 
     def inference(self, imgs, timestamps, training=False):
 
-        t = 0.5        
+        t = 0.5                        # Timestamp of the generated frame.
 
-        # lfr_img0 = lr(t-1)
-        # lfr_img1 = lr(t)
-        # lfr_img2 = lr(t+1)
-        # hfr_img0 = hr(t-1)
-        # hfr_img1 = hr(t+1)
-
-        lfr_img0 = imgs[:, :, :3]      
-        lfr_img1 = imgs[:, :, 3:6]
-        hfr_img0 = imgs[:, :, 6:9]
-        hfr_img1 = imgs[:, :, 9:12]
-        hfr_img2 = imgs[:, :, 12:15]
-
-        # Moving images to torch tensors
-        lfr_img0 = torch.from_numpy(np.transpose(lfr_img0, (2, 0, 1))).to(
-            device, non_blocking=True).unsqueeze(0).float() / 255.
-        lfr_img1 = torch.from_numpy(np.transpose(lfr_img1, (2, 0, 1))).to(
-            device, non_blocking=True).unsqueeze(0).float() / 255.
-        hfr_img0 = torch.from_numpy(np.transpose(hfr_img0, (2, 0, 1))).to(
-            device, non_blocking=True).unsqueeze(0).float() / 255.
-        hfr_img1 = torch.from_numpy(np.transpose(hfr_img1, (2, 0, 1))).to(
-            device, non_blocking=True).unsqueeze(0).float() / 255.
-        hfr_img2 = torch.from_numpy(np.transpose(hfr_img2, (2, 0, 1))).to(
-            device, non_blocking=True).unsqueeze(0).float() / 255.
+        if(training == False):
+            hr_img0 = imgs[:, :, :3]      # hr_img0 = hr(t-1)
+            hr_img1 = imgs[:, :, 3:6]     # hr_img1 = hr(t+1)
+            lr_img0 = imgs[:, :, 6:9]     # lr_img0 = lr(t-1)
+            lr_img1 = imgs[:, :, 9:12]    # lr_img1 = lr(t)
+            lr_img2 = imgs[:, :, 12:15]   # lr_img2 = lr(t+1)
+            
+    
+            # Moving images to torch tensors
+            hr_img0 = torch.from_numpy(np.transpose(hr_img0, (2, 0, 1))).to(
+                device, non_blocking=True).unsqueeze(0).float() / 255.
+            hr_img1 = torch.from_numpy(np.transpose(hr_img1, (2, 0, 1))).to(
+                device, non_blocking=True).unsqueeze(0).float() / 255.
+            lr_img0 = torch.from_numpy(np.transpose(lr_img0, (2, 0, 1))).to(
+                device, non_blocking=True).unsqueeze(0).float() / 255.
+            lr_img1 = torch.from_numpy(np.transpose(lr_img1, (2, 0, 1))).to(
+                device, non_blocking=True).unsqueeze(0).float() / 255.
+            lr_img2 = torch.from_numpy(np.transpose(lr_img2, (2, 0, 1))).to(
+                device, non_blocking=True).unsqueeze(0).float() / 255.
 
         # First bi-directional optical frames extracted for intermediate flow estimation
 
-        lfr_F_0_1 = self.optical_flow_est(               # Flow from t=0 to t=1 (high sr, low fps video)
-            torch.cat((lfr_img0, lfr_img1), 1))
-        lfr_F_1_0 = self.optical_flow_est(               # Flow from t=1 to t=0 (high sr, low fps video)
-            torch.cat((lfr_img1, lfr_img0), 1))
+        hr_F_0_1 = self.optical_flow_est(               # Flow from t=0 to t=1 (high sr, low fps video)
+            torch.cat((hr_img0, hr_img1), 1))
 
-        hfr_F_0_1 = self.optical_flow_est(               # Flow from t=0 to t=1 (low sr, high fps video)
-            torch.cat((hfr_img0, hfr_img1), 1))
-        hfr_F_1_0 = self.optical_flow_est(               # Flow from t=1 to t=0 (low sr, high fps video)
-             torch.cat((hfr_img1, hfr_img0), 1))
+        hr_F_1_0 = self.optical_flow_est(               # Flow from t=1 to t=0 (high sr, low fps video)
+            torch.cat((hr_img1, hr_img0), 1))
 
-        # hfr_F_1_2 = self.optical_flow_est(               # Flow from t=1 to t=2 (low sr, high fps video)
-        #     torch.cat((hfr_img1, hfr_img2), 1))
-
-        hfr_F_2_1 = self.optical_flow_est(               # Flow from t=2 to t=1 (low sr, high fps video)
-            torch.cat((hfr_img2, hfr_img1), 1))
+        lr_F_0_1 = self.optical_flow_est(               # Flow from t=0 to t=1 (low sr, high fps video)
+            torch.cat((lr_img0, lr_img1), 1))
+       
+        lr_F_2_1 = self.optical_flow_est(               # Flow from t=2 to t=1 (low sr, high fps video)
+            torch.cat((lr_img2, lr_img1), 1))
 
         F_t_0, F_t_1 = self.intermediate_flow_est(       # Flow from t to 0 and flow from t to 1 using provided low fps video frames
-            torch.cat((lfr_F_0_1, lfr_F_1_0), 1), 0.5)  
+            torch.cat((hr_F_0_1, hr_F_1_0), 1), 0.5)
 
         F_t_0 = torch.from_numpy(F_t_0).to(device)
         F_t_1 = torch.from_numpy(F_t_1).to(device)
 
-        backwarp = backWarp(lfr_img0.shape[3], lfr_img0.shape[2], device)   # Backwarping module
+        # Backwarping module
+        backwarp = backWarp(hr_img0.shape[3], hr_img0.shape[2], device)
         backwarp.to(device)
 
         #I0  = backwarp(I1, F_0_1)
 
-        g_I0_F_t_0 = backwarp(lfr_img0, F_t_0)              # Backwarp of I0 and F_t_0
-        g_I1_F_t_1 = backwarp(lfr_img1, F_t_1)              # Backwarp of I1 and F_t_1
-        
-        # warped_lfr_img0 = backwarp(lfr_img1, lfr_F_0_1)     # Backwarp of LFR_I0 and F_t_0
-        # warped_lfr_img1 = backwarp(lfr_img0, lfr_F_1_0)     # Backwarp of LFR_I1 and F_t_0
-        
-        warped_hfr_img0 = backwarp(hfr_img1, hfr_F_0_1)     # Backwarp of HFR_I0 and F_t_0
-        # result1 = warped_hfr_img0.detach().numpy()
-        # result1 = result1[0,:]
-        # result1 = np.transpose(result1, (1, 2, 0))
-        # print(result1.shape)
-        # cv2.imshow("win", result1)
-        # cv2.waitKey(1000)
-        
-        #warped_hfr_img1 = backwarp(hfr_img0, hfr_F_1_0)     # Backwarp of HFR_I1 and F_t_0
-        warped_hfr_img2 = backwarp(hfr_img1, hfr_F_2_1)     # Backwarp of HFR_I2 and F_t_0
+        # Backwarp of I0 and F_t_0
+        g_I0_F_t_0 = backwarp(hr_img0, F_t_0)
+        # Backwarp of I1 and F_t_1
+        g_I1_F_t_1 = backwarp(hr_img1, F_t_1)
+
+        # Backwarp of LR_I0 and F_t_0
+        warped_lr_img0 = backwarp(lr_img1, lr_F_0_1)
+
+        # Backwarp of LR_I2 and F_t_0
+        warped_lr_img2 = backwarp(lr_img1, lr_F_2_1)
 
         # Interpolation of flows to match tensor sizes
 
-        # lfr_F_0_1 = F.interpolate(lfr_F_0_1, scale_factor=2, mode="bilinear",    
-        #                      align_corners=False) 
-        # lfr_F_1_0 = F.interpolate(lfr_F_1_0, scale_factor=2, mode="bilinear",   
-        #                      align_corners=False) 
-        F_t_1 = F.interpolate(F_t_1, scale_factor=2, mode="bilinear", 
-                             align_corners=False)
-        F_t_0 = F.interpolate(F_t_0, scale_factor=2, mode="bilinear",  
-                             align_corners=False)
+        input_imgs = torch.cat(
+            (warped_lr_img0,  lr_img1, warped_lr_img2, g_I0_F_t_0, g_I1_F_t_1), dim=1)
 
-        
-        input_imgs = torch.cat((warped_hfr_img0,  hfr_img1,warped_hfr_img2, g_I0_F_t_0, g_I1_F_t_1), dim=1)
-        
-        padding1_mult= math.floor(input_imgs.shape[2] / 32) + 1
-        padding2_mult= math.floor(input_imgs.shape[3] / 32) + 1
+        padding1_mult = math.floor(input_imgs.shape[2] / 32) + 1
+        padding2_mult = math.floor(input_imgs.shape[3] / 32) + 1
         pad1 = (32 * padding1_mult) - input_imgs.shape[2]
         pad2 = (32 * padding2_mult) - input_imgs.shape[3]
-        
+
         # Padding to meet dimension requirements of the network
         # Done before network call, otherwise slows down the network
-        padding1 = nn.ReplicationPad2d((0, pad2, pad1, 0))       
-        
-        input_imgs = padding1(input_imgs)
-        
-        
-        Ft_p = self.arbitrary_time_f_int(input_imgs)
+        padding1 = nn.ReplicationPad2d((0, pad2, pad1, 0))
 
-        padding2 = nn.ReplicationPad2d((0, -pad2, -pad1, 0)) 
+        input_imgs = padding1(input_imgs)
+
+        Ft_p = self.unet(input_imgs)
+
+        padding2 = nn.ReplicationPad2d((0, -pad2, -pad1, 0))
         Ft_p = padding2(Ft_p)
 
-        # F_t_0_f = intrpOut[:, :2, :, :] + F_t_0
-        # F_t_1_f = intrpOut[:, 2:4, :, :] + F_t_1
-        # V_t_0   = torch.sigmoid(intrpOut[:, 4:5, :, :])
-        # V_t_1   = 1 - V_t_0
-
-        # g_I0_F_t_0_f = backwarp(lfr_img0, F_t_0_f)
-        # g_I1_F_t_1_f = backwarp(lfr_img1, F_t_1_f)
-
-        # wCoeff = [1 - t, t]
-
-        # Ft_p = (wCoeff[0] * V_t_0 * g_I0_F_t_0_f + wCoeff[1] * V_t_1 * g_I1_F_t_1_f) / (wCoeff[0] * V_t_0 + wCoeff[1] * V_t_1)
-        
         result = Ft_p.detach().numpy()
-        result = result[0,:]
+        result = result[0, :]
         result = np.transpose(result, (1, 2, 0))
         cv2.imshow("win", result)
         cv2.waitKey(100)
-        
+
         return result

@@ -34,28 +34,28 @@ if __name__ == '__main__':
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    lfr_video = "videos/car_vid.mp4"             # Low frame rate video
-    hfr_video = "videos/car_vid_2X_12fps.mp4"    # High frame rate video
+    hr_video = "videos/car_vid.mp4"             # Low frame rate video
+    lr_video = "videos/car_vid_2X_12fps.mp4"    # High frame rate video
 
-    hstr_model = HSTR_FSS()                     # Initializing the model
-    HSTR_FSS.to(device)
+    hstr_model = HSTR_FSS()                      # Initializing the model
+    # HSTR_FSS.to(device)
 
     # Processing input videos
-    lfr_frames, lfr_proc_timestamps, lfr_tot_frame, lfr_fps = getting_input(
-        lfr_video)
-    hfr_frames, hfr_proc_timestamps, hfr_tot_frame, hfr_fps = getting_input(
-        hfr_video)
+    hr_frames, hr_proc_timestamps, hr_tot_frame, hr_fps = getting_input(
+        hr_video)
+    lr_frames, lr_proc_timestamps, lr_tot_frame, lr_fps = getting_input(
+        lr_video)
 
     # Concatenating input images into one to feed to the network
     #imgs = np.concatenate((lfr_frames[0], lfr_frames[1], hfr_frames[0], hfr_frames[1], hfr_frames[2]), 2)
 
     # Feeding images to the model
     output = []
-    for i in range(len(lfr_frames) - 1):
+    for i in range(len(hr_frames) - 1):
         imgs = np.concatenate(
-            (lfr_frames[i], lfr_frames[i + 1], hfr_frames[2*i], hfr_frames[2*i + 1], hfr_frames[2*i + 2]), 2)
-        output.append(lfr_frames[i])
-        output_image = hstr_model.inference(imgs, hfr_proc_timestamps[:3])
+            (hr_frames[i], hr_frames[i + 1], lr_frames[2*i], lr_frames[2*i + 1], lr_frames[2*i + 2]), 2)
+        output.append(hr_frames[i])
+        output_image = hstr_model.inference(imgs, lr_proc_timestamps[:3])
         output.append(output_image)
 
     height, width, layers = output[0].shape

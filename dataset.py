@@ -8,9 +8,10 @@ import os
 cv2.setNumThreads(1)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class VimeoDataset(Dataset):
-    def __init__(self, dataset_name, batch_size=32):
+    def __init__(self, dataset_name, data_root, batch_size=32):
         self.batch_size = batch_size
         self.dataset_name = dataset_name
+        self.data_root = data_root
         self.load_data()
         self.h = 256
         self.w = 448
@@ -28,10 +29,10 @@ class VimeoDataset(Dataset):
         self.trainlist = []
         self.testlist = []
         # data_root = '../../../../ortak/mughees/datasets/vimeo_triplet'
-        data_root = '/home/hus/Desktop/data/vimeo_triplet'
-        data_path = os.path.join(data_root, "sequences/")
-        train_path = os.path.join(data_root, 'tri_trainlist.txt')
-        test_path = os.path.join(data_root, 'tri_testlist.txt')
+        #data_root = '/home/hus/Desktop/data/vimeo_triplet'
+        data_path = os.path.join(self.data_root, "sequences/")
+        train_path = os.path.join(self.data_root, 'tri_trainlist.txt')
+        test_path = os.path.join(self.data_root, 'tri_testlist.txt')
         with open(train_path, 'r') as f:
             self.trainlist = f.read().splitlines()
         with open(test_path, 'r') as f:
