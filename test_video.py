@@ -1,7 +1,7 @@
 import cv2
-import numpy as np
 import torch
-import matplotlib.pyplot as plt
+import argparse
+import numpy as np
 from model.FastRIFE_Super_Slomo.HSTR_FSS import HSTR_FSS
 from model.FastRIFE_Super_Slomo.HSTR_LKSS import HSTR_LKSS
 
@@ -32,10 +32,14 @@ def getting_input(video):
 
 if __name__ == '__main__':
 
+    parser = argparse.ArgumentParser(description='main')
+    parser.add_argument('--videos', nargs=2, required=True, type=str, help="Input videos, first HR, then LR video")
+    args = parser.parse_args()    
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    hr_video = "videos/car_vid.mp4"             # Low frame rate video
-    lr_video = "videos/car_vid_2X_12fps.mp4"    # High frame rate video
+    hr_video = args.videos[0]            # Low frame rate video
+    lr_video = args.videos[1]            # High frame rate video
 
     hstr_model = HSTR_FSS()                      # Initializing the model
     # HSTR_FSS.to(device)
@@ -45,6 +49,10 @@ if __name__ == '__main__':
         hr_video)
     lr_frames, lr_proc_timestamps, lr_tot_frame, lr_fps = getting_input(
         lr_video)
+    
+    if(hr_fps > lr_fps):
+        print("------------Wrong input order. First HR, then LR video--------------")
+        exit(-1)
 
     # Concatenating input images into one to feed to the network
     #imgs = np.concatenate((lfr_frames[0], lfr_frames[1], hfr_frames[0], hfr_frames[1], hfr_frames[2]), 2)
