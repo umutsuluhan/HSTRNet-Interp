@@ -178,4 +178,7 @@ class HSTR_FSS():
         else:
             result = Ft_p
 
-        return result
+        if training == False:
+            return result
+        else:
+            return result, g_I0_F_t_0, g_I1_F_t_1, warped_lr_img0, lr_img0, warped_lr_img2, lr_img2

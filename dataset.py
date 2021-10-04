@@ -47,10 +47,10 @@ class VimeoDataset(Dataset):
 
         if self.dataset_name == 'train':
             self.meta_data = self.trainlist
-            print('Number of training samples:', len(self.meta_data))
+            print('Number of training samples in:' + str(self.data_root.split("/")[-1]), len(self.meta_data))
         else:
             self.meta_data = self.testlist
-            print('Number of validation samples:', len(self.meta_data))
+            print('Number of validation samples in:' + str(self.data_root.split("/")[-1]), len(self.meta_data))
         self.nr_sample = len(self.meta_data)
 
     def aug(self, img0, gt, img1, h, w):

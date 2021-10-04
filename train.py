@@ -10,9 +10,15 @@ from model.FastRIFE_Super_Slomo.HSTR_FSS import HSTR_FSS
 from torch.utils.tensorboard import SummaryWriter
 from dataset import *
 
-def train(model):
-    data_root = "/home/hus/Desktop/data/vimeo_triplet"   # MODIFY IN SERVER
-    log_path = 'train_log'
+device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+# def validate(model, val_data_HR, val_data_LR, writer_val):
+    
+
+def train(model, data_root_p):
+    data_root = data_root_p   # MODIFY IN SERVER
+    log_path = 'logs'
     writer = SummaryWriter(log_path + '/train')
     writer_val = SummaryWriter(log_path + '/validate')
     step = 0
@@ -40,18 +46,20 @@ def train(model):
     params = model.return_parameters()
     optimizer = optim.Adam(params, lr=0.0001)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100, 150], gamma=0.1)
+    loss_list = list()
     
     print('training...')
     
-    L1_losses = list()
+   
     
-    time_stamp = time.time()
     for epoch in range(args.epoch):
-        for data_HR, data_LR in zip(train_data_HR, train_data_LR):
-            data_time_interval = time.time() - time_stamp
+        for i , (data_HR, data_LR) in enumerate(zip(train_data_HR, train_data_LR)):
+            print(i)
             time_stamp = time.time()
-            data_HR = data_HR/255
-            data_LR = data_LR/255
+            # data_HR = data_HR.to(device, non_blocking=True) / 255.
+            # data_LR = data_LR.to(device, non_blocking=True) / 255.
+            data_HR = data_HR / 255.
+            data_LR = data_LR / 255.
             # data_gpu_HR = data_HR
             # data_gpu = data_gpu.to(device, non_blocking=True) / 255.
             img0_HR = data_HR[:, :3]
@@ -65,25 +73,32 @@ def train(model):
             
             imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
             
-            pred = model.inference(imgs, [], training=True)
+            optimizer.zero_grad()
+            
+            pred, g_I0_F_t_0, g_I1_F_t_1, warped_lr_img0, lr_img0, warped_lr_img2, lr_img2 = model.inference(imgs, [], training=True)
             # cv2.imshow("win", pred)
             # cv2.waitKey(2000)
            
             
             L1_loss = L1_lossFn(pred, gt)
-            L1_loss.backward()
-            optimizer.step()
-            L1_losses.append(L1_loss)
+            warp_loss = L1_lossFn(g_I0_F_t_0, gt) + L1_lossFn(g_I1_F_t_1, gt) + L1_lossFn(warped_lr_img0, lr_img0) + L1_lossFn(warped_lr_img2, lr_img2)
             
-            train_time_interval = time.time() - time_stamp
-            time_stamp = time.time()
-
-   
+            loss = L1_loss * 0.8 + warp_loss * 0.4
+            
+            loss.backward()
+            optimizer.step()
+            loss_list.append(loss)
+            
+            if i % 100 == 1:
+                writer.add_scalar("loss", loss, step)
+                writer.add_scalar('L1_loss', L1_loss, step)
+                writer.add_scalar('warp_loss', warp_loss, step)
 
 if __name__ == "__main__":    
-    parser = argparse.ArgumentParser(description='slomo')
+    parser = argparse.ArgumentParser(description='hey')
     parser.add_argument('--epoch', default=300, type=int)
     parser.add_argument('--batch_size', default=12, type=int, help='minibatch size') # 4 * 12 = 48
+    parser.add_argument('--data_root', required=True, type=str)
     args = parser.parse_args()
     device = torch.device("cuda")
     
@@ -96,4 +111,4 @@ if __name__ == "__main__":
     # torch.backends.cudnn.benchmark = True
    
     model = HSTR_FSS()
-    train(model)
+    train(model, args.data_root)

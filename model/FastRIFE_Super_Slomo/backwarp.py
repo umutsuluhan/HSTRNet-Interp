@@ -5,6 +5,7 @@ import torch.nn.functional as F
 
 device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 class backWarp(nn.Module):
     """
     A class for creating a backwarping object.
