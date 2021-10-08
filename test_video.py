@@ -1,7 +1,11 @@
 import cv2
+import math
 import torch
 import argparse
+
 import numpy as np
+import torch.nn as nn
+
 from model.FastRIFE_Super_Slomo.HSTR_FSS import HSTR_FSS
 from model.FastRIFE_Super_Slomo.HSTR_LKSS import HSTR_LKSS
 
@@ -36,7 +40,7 @@ if __name__ == '__main__':
     parser.add_argument('--videos', nargs=2, required=True, type=str, help="Input videos, first HR, then LR video")
     args = parser.parse_args()    
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     hr_video = args.videos[0]            # Low frame rate video
     lr_video = args.videos[1]            # High frame rate video
@@ -57,14 +61,48 @@ if __name__ == '__main__':
     # Concatenating input images into one to feed to the network
     #imgs = np.concatenate((lfr_frames[0], lfr_frames[1], hfr_frames[0], hfr_frames[1], hfr_frames[2]), 2)
 
+    padding1_mult = math.floor(hr_frames[0].shape[0] / 32) + 1
+    padding2_mult = math.floor(hr_frames[0].shape[1] / 32) + 1
+    pad1 = (32 * padding1_mult) - hr_frames[0].shape[0]
+    pad2 = (32 * padding2_mult) - hr_frames[0].shape[1]
+
+    # Padding to meet dimension requirements of the network
+    # Done before network call, otherwise slows down the network
+    padding1 = nn.ReplicationPad2d((0, pad2, pad1, 0))
+
     # Feeding images to the model
     output = []
     for i in range(len(hr_frames) - 1):
-        imgs = np.concatenate(
-            (hr_frames[i], hr_frames[i + 1], lr_frames[2*i], lr_frames[2*i + 1], lr_frames[2*i + 2]), 2)
+        
+        # Moving images to torch tensors
+        hr_img0 = torch.from_numpy(np.transpose(hr_frames[i], (2, 0, 1))).to(
+                device, non_blocking=True).unsqueeze(0).float() / 255.
+        hr_img1 = torch.from_numpy(np.transpose(hr_frames[i + 1], (2, 0, 1))).to(
+                device, non_blocking=True).unsqueeze(0).float() / 255.
+        lr_img0 = torch.from_numpy(np.transpose(lr_frames[2*i], (2, 0, 1))).to(
+                device, non_blocking=True).unsqueeze(0).float() / 255.
+        lr_img1 = torch.from_numpy(np.transpose(lr_frames[2*i + 1], (2, 0, 1))).to(
+                device, non_blocking=True).unsqueeze(0).float() / 255.
+        lr_img2 = torch.from_numpy(np.transpose(lr_frames[2*i + 2], (2, 0, 1))).to(
+                device, non_blocking=True).unsqueeze(0).float() / 255.
+        
+        imgs = torch.cat(
+            (hr_img0, hr_img1, lr_img0, lr_img1, lr_img2), 1)
+        
+        input_imgs = padding1(imgs)
+        
         output.append(hr_frames[i])
-        output_image = hstr_model.inference(imgs, lr_proc_timestamps[:3])
-        output.append(output_image)
+        
+        output_image = hstr_model.inference(input_imgs, lr_proc_timestamps[:3])
+        padding2 = nn.ReplicationPad2d((0, -pad2, -pad1, 0))
+        output_image = padding2(output_image)
+        
+        result = output_image.detach().numpy()
+        result = result[0, :]
+        result = np.transpose(result, (1, 2, 0))
+        # cv2.imshow("win", result)
+        # cv2.waitKey(100)
+        output.append(result)
 
     height, width, layers = output[0].shape
     size = (width, height)
