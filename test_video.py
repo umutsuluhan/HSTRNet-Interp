@@ -94,14 +94,15 @@ if __name__ == '__main__':
         output.append(hr_frames[i])
         
         output_image = hstr_model.inference(input_imgs, lr_proc_timestamps[:3])
+        
         padding2 = nn.ReplicationPad2d((0, -pad2, -pad1, 0))
         output_image = padding2(output_image)
         
         result = output_image.detach().numpy()
         result = result[0, :]
         result = np.transpose(result, (1, 2, 0))
-        # cv2.imshow("win", result)
-        # cv2.waitKey(100)
+        cv2.imshow("win", result)
+        cv2.waitKey(100)
         output.append(result)
 
     height, width, layers = output[0].shape

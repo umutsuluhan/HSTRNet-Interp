@@ -3,4 +3,4 @@ main:
 train: 
 	python3 train.py --data_root /home/hus/Desktop/data/vimeo_triplet
 clean:
-	rm -rf __pycache__ ./model/__pycache_ project.mp4 logs
+	rm -rf __pycache__ ./model/__pycache_ project.mp4 logs/*
