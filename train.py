@@ -12,7 +12,7 @@ import logging
 from model.FastRIFE_Super_Slomo.HSTR_FSS import HSTR_FSS
 from dataset import VimeoDataset, DataLoader
 
-device = "cpu"  # torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def train(model, data_root_p):

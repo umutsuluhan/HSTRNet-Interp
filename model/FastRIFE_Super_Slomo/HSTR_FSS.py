@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from .unet_model import UNet
 from .backwarp import backWarp
 
-device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class HSTR_FSS():
 

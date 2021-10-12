@@ -40,7 +40,7 @@ if __name__ == '__main__':
     parser.add_argument('--videos', nargs=2, required=True, type=str, help="Input videos, first HR, then LR video")
     args = parser.parse_args()    
 
-    device = "cpu" #torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     hr_video = args.videos[0]            # Low frame rate video
     lr_video = args.videos[1]            # High frame rate video
