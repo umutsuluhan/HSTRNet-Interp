@@ -10,7 +10,6 @@ import math
 import logging
 
 from model.FastRIFE_Super_Slomo.HSTR_FSS import HSTR_FSS
-from torch.utils.tensorboard import SummaryWriter
 from dataset import VimeoDataset, DataLoader
 
 device = "cpu"  # torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -18,32 +17,30 @@ device = "cpu"  # torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def train(model, data_root_p):
     data_root = data_root_p   # MODIFY IN SERVER
-    log_path = 'logs'
     logging.basicConfig(filename='logs/training.log', filemode='w',
                         format='%(asctime)s - %(message)s', level=logging.INFO)
-    step = 0
 
-    dataset_HR = VimeoDataset('train', data_root)
+    dataset_HR = VimeoDataset('train', data_root[0])
     train_data_HR = DataLoader(
         dataset_HR, batch_size=args.batch_size, num_workers=8, pin_memory=True, drop_last=True)
     args.step_per_epoch = train_data_HR.__len__()
 
     logging.info("Training dataset of HR videos are loaded")
 
-    dataset_LR = VimeoDataset('train', data_root)
+    dataset_LR = VimeoDataset('train', data_root[1])
     train_data_LR = DataLoader(
         dataset_LR, batch_size=args.batch_size, num_workers=8, pin_memory=True, drop_last=True)
     args.step_per_epoch = train_data_LR.__len__()
 
     logging.info("Training dataset of LR videos are loaded")
 
-    dataset_val_HR = VimeoDataset('validation', data_root)
+    dataset_val_HR = VimeoDataset('validation', data_root[0])
     val_data_HR = DataLoader(
         dataset_val_HR, batch_size=12, pin_memory=True, num_workers=8)
 
     logging.info("Validation dataset of HR videos are loaded")
 
-    dataset_val_LR = VimeoDataset('validation', data_root)
+    dataset_val_LR = VimeoDataset('validation', data_root[1])
     val_data_LR = DataLoader(
         dataset_val_LR, batch_size=12, pin_memory=True, num_workers=8)
 
@@ -80,6 +77,8 @@ def train(model, data_root_p):
         print("Epoch: ", epoch)
         logging.info("---------------------------------------------")
         logging.info("Epoch:" + str(epoch))
+        logging.info("---------------------------------------------")
+
 
         cLoss.append([])
         valLoss.append([])
@@ -98,6 +97,7 @@ def train(model, data_root_p):
             img0_LR = data_LR[:, :3]
             img1_LR = data_LR[:, 6:9]
             img2_LR = data_LR[:, 3:6]
+            
 
             imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
 
@@ -158,6 +158,7 @@ def train(model, data_root_p):
             torch.save(dict1, "model_dict" + "/HSTR_" + str(checkpoint_counter) + ".ckpt")
             checkpoint_counter += 1
 
+    torch.save(model.unet.state_dict(), '{}/unet.pkl'.format("model_dict"))
 
 def validate(model, val_data_HR, val_data_LR, len_val):
     val_loss = 0
@@ -206,7 +207,7 @@ if __name__ == "__main__":
     parser.add_argument('--epoch', default=300, type=int)
     parser.add_argument('--batch_size', default=12, type=int,
                         help='minibatch size')  # 4 * 12 = 48
-    parser.add_argument('--data_root', required=True, type=str)
+    parser.add_argument('--data_root',nargs=2, required=True, type=str)
     args = parser.parse_args()
 
     # ASK IF NEEDED
