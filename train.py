@@ -11,8 +11,9 @@ import logging
 
 from model.FastRIFE_Super_Slomo.HSTR_FSS import HSTR_FSS
 from dataset import VimeoDataset, DataLoader
+from model.pytorch_msssim import ssim
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device =  torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def train(model, data_root_p):
@@ -52,7 +53,6 @@ def train(model, data_root_p):
     logging.info("---------------------------------------------")
     logging.info("First validation is completed")
 
-
     L1_lossFn = nn.L1Loss()
     params = model.return_parameters()
     optimizer = optim.Adam(params, lr=0.0001)
@@ -70,7 +70,6 @@ def train(model, data_root_p):
 
     start = time.time()
     checkpoint_counter = 0
-    
 
     for epoch in range(args.epoch):
 
@@ -78,7 +77,6 @@ def train(model, data_root_p):
         logging.info("---------------------------------------------")
         logging.info("Epoch:" + str(epoch))
         logging.info("---------------------------------------------")
-
 
         cLoss.append([])
         valLoss.append([])
@@ -97,7 +95,6 @@ def train(model, data_root_p):
             img0_LR = data_LR[:, :3]
             img1_LR = data_LR[:, 6:9]
             img2_LR = data_LR[:, 3:6]
-            
 
             imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
 
@@ -125,7 +122,7 @@ def train(model, data_root_p):
 
                 print("Validating...")
 
-                psnr, vLoss, psnr_mean = validate(
+                psnr, vLoss, ssim = validate(
                     model, val_data_HR, val_data_LR, len_val)
 
                 valPSNR[epoch].append(psnr)
@@ -133,37 +130,41 @@ def train(model, data_root_p):
 
                 endVal = time.time()
 
-                print(" Loss: %0.6f  TrainExecTime: %0.1f  ValLoss:%0.6f  ValPSNR: %0.4f  ValEvalTime: %0.2f  PSNR_mean: %0.4f " % (
-                    iloss / 100, end - start, vLoss, psnr, endVal - end, psnr_mean))
+                print(" Loss: %0.6f  TrainExecTime: %0.1f  ValLoss:%0.6f  ValPSNR: %0.4f  ValEvalTime: %0.2f  SSIM: %0.4f " % (
+                    iloss / 100, end - start, vLoss, psnr, endVal - end, ssim))
                 logging.info("Train index: " + str(trainIndex) + " Loss: " + str(round(iloss / 100, 6)) +
-                             " TrainExecTime: " + str(round(end - start, 1)) + " ValLoss: " + str(round(vLoss.item(), 6)) + 
-                             " ValPSNR: " + str(round(psnr, 4)) + " ValEvalTime: " + str(round(endVal - end, 2)) + 
-                             " PSNR_mean: " + str(round(psnr_mean, 4)))
+                             " TrainExecTime: " + str(round(end - start, 1)) + " ValLoss: " + str(round(vLoss.item(), 6)) +
+                             " ValPSNR: " + str(round(psnr, 4)) + " ValEvalTime: " + str(round(endVal - end, 2)) +
+                             " SSIM: " + str(round(ssim, 4)))
                 start = time.time()
 
         if ((epoch % checkpoint_counter) == 0):
             dict1 = {
-                'Detail':"End to end Super SloMo.",
-                'epoch':epoch,
-                'timestamp':datetime.datetime.now(),
-                'trainBatchSz':12,
+                'Detail': "End to end Super SloMo.",
+                'epoch': epoch,
+                'timestamp': datetime.datetime.now(),
+                'trainBatchSz': 12,
                 # 'validationBatchSz':args.validation_batch_size,
-                #'learningRate':get_lr(optimizer),
-                'loss':cLoss,
-                'valLoss':valLoss,
-                'valPSNR':valPSNR,
-                'psnrMean':psnr_mean,
+                # 'learningRate':get_lr(optimizer),
+                'loss': cLoss,
+                'valLoss': valLoss,
+                'valPSNR': valPSNR,
+                'SSIM': ssim,
                 'state_dict_model': model.unet.state_dict(),
-                }
-            torch.save(dict1, "model_dict" + "/HSTR_" + str(checkpoint_counter) + ".ckpt")
+            }
+            torch.save(dict1, "model_dict" + "/HSTR_" +
+                       str(checkpoint_counter) + ".ckpt")
             checkpoint_counter += 1
 
     torch.save(model.unet.state_dict(), '{}/unet.pkl'.format("model_dict"))
 
+
 def validate(model, val_data_HR, val_data_LR, len_val):
+    model.unet.eval()
+
     val_loss = 0
     psnr = 0
-    psnr_list = list()
+    out_ssim = 0
 
     L1_lossFn = nn.L1Loss()
     MSE_LossFn = nn.MSELoss()
@@ -196,10 +197,10 @@ def validate(model, val_data_HR, val_data_LR, len_val):
 
         MSE_loss = MSE_LossFn(pred, gt)
         psnr += (10 * math.log10(1 / MSE_loss.item()))
-        psnr_list.append((10 * math.log10(1 / MSE_loss.item())))
-
-        return (psnr / len_val), (loss / len_val), np.array(psnr_list).mean()
+        out_ssim += ssim(pred, gt)
     
+    
+    return (psnr / len_val), (loss / len_val), (out_ssim / len_val)
 
 
 if __name__ == "__main__":
@@ -207,7 +208,7 @@ if __name__ == "__main__":
     parser.add_argument('--epoch', default=300, type=int)
     parser.add_argument('--batch_size', default=12, type=int,
                         help='minibatch size')  # 4 * 12 = 48
-    parser.add_argument('--data_root',nargs=2, required=True, type=str)
+    parser.add_argument('--data_root', nargs=2, required=True, type=str)
     args = parser.parse_args()
 
     # ASK IF NEEDED
