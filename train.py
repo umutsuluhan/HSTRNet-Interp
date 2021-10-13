@@ -127,7 +127,7 @@ def train(model, data_root_p):
             end = time.time()
 
         
-            if(trainIndex % 2500 == 0):
+            if(trainIndex % 10000 == 0):
 
                 print("Validating, Train Index: " + str(trainIndex))
                 logging.info("Validating, Train Index: " + str(trainIndex))
