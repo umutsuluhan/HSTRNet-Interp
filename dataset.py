@@ -6,12 +6,13 @@ from torch.utils.data import DataLoader, Dataset
 import os
 
 cv2.setNumThreads(1)
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 class VimeoDataset(Dataset):
-    def __init__(self, dataset_name, data_root, batch_size=32):
+    def __init__(self, dataset_name, data_root,HR , batch_size=32):
         self.batch_size = batch_size
         self.dataset_name = dataset_name
         self.data_root = data_root
+        self.HR = HR
         self.load_data()
         self.h = 256
         self.w = 448
@@ -30,7 +31,10 @@ class VimeoDataset(Dataset):
         self.testlist = []
         # data_root = '../../../../ortak/mughees/datasets/vimeo_triplet'
         #data_root = '/home/hus/Desktop/data/vimeo_triplet'
-        data_path = os.path.join(self.data_root, "sequences/")
+        if self.HR == True:
+            data_path = os.path.join(self.data_root, "sequences/")
+        else:
+            data_path = os.path.join(self.data_root, "x4_downsampled_sequences/")
         train_path = os.path.join(self.data_root, 'tri_trainlist.txt')
         test_path = os.path.join(self.data_root, 'tri_testlist.txt')
         with open(train_path, 'r') as f:
@@ -47,10 +51,10 @@ class VimeoDataset(Dataset):
 
         if self.dataset_name == 'train':
             self.meta_data = self.trainlist
-            print('Number of training samples in:' + str(self.data_root.split("/")[-1]), len(self.meta_data))
+            print('Number of training samples in: ' + str(self.HR) + " "  + str(self.data_root.split("/")[-1]), len(self.meta_data))
         else:
             self.meta_data = self.testlist
-            print('Number of validation samples in:' + str(self.data_root.split("/")[-1]), len(self.meta_data))
+            print('Number of validation samples in: ' + str(self.HR) + " "  + str(self.data_root.split("/")[-1]), len(self.meta_data))
         self.nr_sample = len(self.meta_data)
 
     def aug(self, img0, gt, img1, h, w):
@@ -75,7 +79,10 @@ class VimeoDataset(Dataset):
         img0, gt, img1 = self.getimg(index)
 
         if self.dataset_name == 'train':
-            img0, gt, img1 = self.aug(img0, gt, img1, 256, 448)
+            if (self.HR == True):
+                img0, gt, img1 = self.aug(img0, gt, img1, 256, 448)
+            else:
+                img0, gt, img1 = self.aug(img0, gt, img1, 64, 112)
             img0 = torch.from_numpy(img0.copy()).permute(2, 0, 1)
             img1 = torch.from_numpy(img1.copy()).permute(2, 0, 1)
             gt = torch.from_numpy(gt.copy()).permute(2, 0, 1)

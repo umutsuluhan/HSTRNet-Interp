@@ -1,7 +1,9 @@
 import argparse
+import cv2
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 import numpy as np
 import random
 import time
@@ -13,7 +15,7 @@ from model.FastRIFE_Super_Slomo.HSTR_FSS import HSTR_FSS
 from dataset import VimeoDataset, DataLoader
 from model.pytorch_msssim import ssim
 
-device =  torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device =  torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
 
 def train(model, data_root_p):
@@ -21,37 +23,36 @@ def train(model, data_root_p):
     logging.basicConfig(filename='logs/training.log', filemode='w',
                         format='%(asctime)s - %(message)s', level=logging.INFO)
 
-    dataset_HR = VimeoDataset('train', data_root[0])
+    logging.info("Device: %s", device)
+    logging.info("Batch size: " + str(args.batch_size))
+
+    dataset_HR = VimeoDataset('train',data_root, HR = True)
     train_data_HR = DataLoader(
-        dataset_HR, batch_size=args.batch_size, num_workers=8, pin_memory=True, drop_last=True)
+        dataset_HR, batch_size=args.batch_size, num_workers=0, drop_last=True)
     args.step_per_epoch = train_data_HR.__len__()
 
     logging.info("Training dataset of HR videos are loaded")
 
-    dataset_LR = VimeoDataset('train', data_root[1])
+    dataset_LR = VimeoDataset('train',data_root, HR=False)
     train_data_LR = DataLoader(
-        dataset_LR, batch_size=args.batch_size, num_workers=8, pin_memory=True, drop_last=True)
+        dataset_LR, batch_size=args.batch_size, num_workers=0, drop_last=True)
     args.step_per_epoch = train_data_LR.__len__()
 
     logging.info("Training dataset of LR videos are loaded")
 
-    dataset_val_HR = VimeoDataset('validation', data_root[0])
+    dataset_val_HR = VimeoDataset('validation', data_root, HR=True)
     val_data_HR = DataLoader(
-        dataset_val_HR, batch_size=12, pin_memory=True, num_workers=8)
+        dataset_val_HR, batch_size=args.batch_size,  num_workers=0)
 
     logging.info("Validation dataset of HR videos are loaded")
 
-    dataset_val_LR = VimeoDataset('validation', data_root[1])
+    dataset_val_LR = VimeoDataset('validation', data_root, HR=False)
     val_data_LR = DataLoader(
-        dataset_val_LR, batch_size=12, pin_memory=True, num_workers=8)
+        dataset_val_LR, batch_size=args.batch_size, num_workers=0)
 
     logging.info("Validation dataset of LR videos are loaded")
 
     len_val = dataset_val_HR.__len__()
-
-    validate(model, val_data_HR, val_data_LR, len_val)
-    logging.info("---------------------------------------------")
-    logging.info("First validation is completed")
 
     L1_lossFn = nn.L1Loss()
     params = model.return_parameters()
@@ -93,8 +94,13 @@ def train(model, data_root_p):
             img1_HR = data_HR[:, 3:6]
 
             img0_LR = data_LR[:, :3]
+            img0_LR = F.interpolate(img0_LR, scale_factor=4, mode='bicubic') 
+
             img1_LR = data_LR[:, 6:9]
+            img1_LR = F.interpolate(img1_LR, scale_factor=4, mode='bicubic')
+
             img2_LR = data_LR[:, 3:6]
+            img2_LR = F.interpolate(img2_LR, scale_factor=4, mode='bicubic')
 
             imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
 
@@ -109,26 +115,31 @@ def train(model, data_root_p):
                 warped_lr_img0, lr_img0) + L1_lossFn(warped_lr_img2, lr_img2)
 
             loss = L1_loss * 0.8 + warp_loss * 0.4
+    
+            del L1_loss, warp_loss
 
             loss.backward()
             optimizer.step()
-            iloss += loss.item()
+            iloss += float(loss.item())
 
             scheduler.step()
 
             end = time.time()
 
-            if(trainIndex % 100 == 0):  # and trainIndex != 0):
+        
+            if(trainIndex % 500 == 0):
 
-                print("Validating...")
+                print("Validating, Train Index: " + str(trainIndex))
+                logging.info("Validating, Train Index: " + str(trainIndex))
+    
+                with torch.no_grad():
+                    psnr, vLoss, ssim = validate(
+                        model, val_data_HR, val_data_LR, len_val)
 
-                psnr, vLoss, ssim = validate(
-                    model, val_data_HR, val_data_LR, len_val)
+                    valPSNR[epoch].append(psnr)
+                    valLoss[epoch].append(vLoss)
 
-                valPSNR[epoch].append(psnr)
-                valLoss[epoch].append(vLoss)
-
-                endVal = time.time()
+                    endVal = time.time()
 
                 print(" Loss: %0.6f  TrainExecTime: %0.1f  ValLoss:%0.6f  ValPSNR: %0.4f  ValEvalTime: %0.2f  SSIM: %0.4f " % (
                     iloss / 100, end - start, vLoss, psnr, endVal - end, ssim))
@@ -143,9 +154,7 @@ def train(model, data_root_p):
                 'Detail': "End to end Super SloMo.",
                 'epoch': epoch,
                 'timestamp': datetime.datetime.now(),
-                'trainBatchSz': 12,
-                # 'validationBatchSz':args.validation_batch_size,
-                # 'learningRate':get_lr(optimizer),
+                'trainBatchSz': 4,
                 'loss': cLoss,
                 'valLoss': valLoss,
                 'valPSNR': valPSNR,
@@ -157,7 +166,6 @@ def train(model, data_root_p):
             checkpoint_counter += 1
 
     torch.save(model.unet.state_dict(), '{}/unet.pkl'.format("model_dict"))
-
 
 def validate(model, val_data_HR, val_data_LR, len_val):
     model.unet.eval()
@@ -178,8 +186,13 @@ def validate(model, val_data_HR, val_data_LR, len_val):
         img1_HR = data_HR[:, 3:6]
 
         img0_LR = data_LR[:, :3]
+        img0_LR = F.interpolate(img0_LR, scale_factor=4, mode='bicubic')
+
         img1_LR = data_LR[:, 6:9]
+        img1_LR = F.interpolate(img1_LR, scale_factor=4, mode='bicubic')
+
         img2_LR = data_LR[:, 3:6]
+        img2_LR = F.interpolate(img2_LR, scale_factor=4, mode='bicubic')
 
         imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
 
@@ -193,11 +206,13 @@ def validate(model, val_data_HR, val_data_LR, len_val):
 
         loss = L1_loss * 0.8 + warp_loss * 0.4
 
-        val_loss += loss
+        del L1_loss, warp_loss
+
+        val_loss += float(loss)
 
         MSE_loss = MSE_LossFn(pred, gt)
-        psnr += (10 * math.log10(1 / MSE_loss.item()))
-        out_ssim += ssim(pred, gt)
+        psnr += float((10 * math.log10(1 / MSE_loss.item())))
+        out_ssim += float(ssim(pred, gt))
     
     
     return (psnr / len_val), (loss / len_val), (out_ssim / len_val)
@@ -208,7 +223,7 @@ if __name__ == "__main__":
     parser.add_argument('--epoch', default=300, type=int)
     parser.add_argument('--batch_size', default=12, type=int,
                         help='minibatch size')  # 4 * 12 = 48
-    parser.add_argument('--data_root', nargs=2, required=True, type=str)
+    parser.add_argument('--data_root', required=True, type=str)
     args = parser.parse_args()
 
     # ASK IF NEEDED

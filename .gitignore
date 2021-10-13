@@ -1,4 +1,6 @@
 /videos
 /images
 /model/train_log
+/logs
 /model_dict
+/__pycache__
