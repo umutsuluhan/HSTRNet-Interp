@@ -4,13 +4,15 @@ import numpy as np
 from torch.optim import AdamW
 import torch.optim as optim
 import itertools
-from .warplayer import warp
+from warplayer import warp
 from torch.nn.parallel import DistributedDataParallel as DDP
-from .IFNet import *
+from scipy.sparse import csr_matrix
+from IFNet import *
 import torch.nn.functional as F
-from .loss import *
+from loss import *
 import cv2
 import math
+import time
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -83,31 +85,33 @@ class FusionNet(nn.Module):
     def __init__(self):
         super(FusionNet, self).__init__()
         self.down0 = Conv2(15, 2*c)
-        self.down1 = Conv2(6*c, 6*c)
-        self.down2 = Conv2(14*c, 14*c)
-        self.down3 = Conv2(30*c, 30*c)
-        self.up0 = deconv(62*c, 8*c)
-        self.up1 = deconv(22*c, 4*c)
-        self.up2 = deconv(10*c, 2*c)
+        self.down1 = Conv2(4*c, 4*c)
+        self.down2 = Conv2(8*c, 8*c)
+        self.down3 = Conv2(16*c, 16*c)
+        self.up0 = deconv(32*c, 8*c)
+        self.up1 = deconv(16*c, 4*c)
+        self.up2 = deconv(8*c, 2*c)
         self.up3 = deconv(4*c, c)
         self.conv = nn.Conv2d(c, 4, 3, 1, 1)
 
-    def forward(self, img0_HR, img1_HR, img0_LR, img2_LR, img1_LR, flow_HR, flow_LR, c0_HR, c1_HR, c0_LR, c1_LR):
+    def forward(self, img0_HR, img1_HR, img0_LR, img1_LR, img2_LR, flow_HR, flow_LR_0_1, flow_LR_2_1, c0_HR, c1_HR):
         warped_img0_HR = warp(img0_HR, flow_HR[:, :2])
         warped_img1_HR = warp(img1_HR, flow_HR[:, 2:4])
-        warped_img0_LR = warp(img0_LR, flow_LR[:, :2])
-        warped_img2_LR = warp(img2_LR, flow_LR[:, 2:4])
+
+        # Check below again
+        warped_img0_LR = warp(img0_LR, flow_LR_0_1)
+        warped_img2_LR = warp(img2_LR, flow_LR_2_1)
 
         s0 = self.down0(torch.cat((warped_img0_HR, warped_img1_HR,
                         warped_img0_LR, warped_img2_LR, img1_LR), 1))
         s1 = self.down1(
-            torch.cat((s0, c0_HR[0], c1_HR[0], c0_LR[0], c1_LR[0]), 1))
+            torch.cat((s0, c0_HR[0], c1_HR[0]), 1))
         s2 = self.down2(
-            torch.cat((s1, c0_HR[1], c1_HR[1], c0_LR[1], c1_LR[1]), 1))
+            torch.cat((s1, c0_HR[1], c1_HR[1]), 1))
         s3 = self.down3(
-            torch.cat((s2, c0_HR[2], c1_HR[2], c0_LR[2], c1_LR[2]), 1))
+            torch.cat((s2, c0_HR[2], c1_HR[2]), 1))
         x = self.up0(
-            torch.cat((s3, c0_HR[3], c1_HR[3], c0_LR[3], c1_LR[3]), 1))
+            torch.cat((s3, c0_HR[3], c1_HR[3]), 1))
         x = self.up1(torch.cat((x, s2), 1))
         x = self.up2(torch.cat((x, s1), 1))
         x = self.up3(torch.cat((x, s0), 1))
@@ -180,25 +184,28 @@ class Model:
                        '{}/contextnet.pkl'.format(path))
             torch.save(self.fusionnet.state_dict(), '{}/unet.pkl'.format(path))
 
-    def predict(self, imgs_HR, imgs_LR, flow_HR, flow_LR, training=True):
-        img0_HR = imgs_HR[:, :3]
-        img1_HR = imgs_HR[:, 3:]
-        img0_LR = imgs_LR[:, :3]
-        img2_LR = imgs_LR[:, 3:6]
-        img1_LR = imgs_LR[:, 6:]
+    def predict(self, imgs, flow_HR, flow_LR_0_1, flow_LR_2_1, training=True):
+        img0_HR = imgs[:, :3]
+        img1_HR = imgs[:, 3:6]
+        img0_LR = imgs[:, 6:9]
+        img1_LR = imgs[:, 9:12]
+        img2_LR = imgs[:, 12:15]
 
         c0_HR = self.contextnet(img0_HR, flow_HR[:, :2])
         c1_HR = self.contextnet(img1_HR, flow_HR[:, 2:4])
-        c0_LR = self.contextnet(img0_LR, flow_LR[:, :2])
-        c1_LR = self.contextnet(img2_LR, flow_LR[:, 2:4])
+        
+        # Contextnet can be used here for LR images. However IFNet outputs Ft->0 and Ft->1 but Lucas Kanade outputs F0-1 to F1->0. Hence Lucas Kanade 
+        # outputs might be needed to converted first.
 
         flow_HR = F.interpolate(flow_HR, scale_factor=2.0, mode="bilinear",
                                 align_corners=False) * 2.0
-        flow_LR = F.interpolate(flow_LR, scale_factor=2.0, mode="bilinear",
+        flow_LR_0_1 = F.interpolate(flow_LR_0_1, scale_factor=2.0, mode="bilinear",
+                                align_corners=False) * 2.0
+        flow_LR_2_1 = F.interpolate(flow_LR_2_1, scale_factor=2.0, mode="bilinear",
                                 align_corners=False) * 2.0
 
         refine_output, warped_img0_HR, warped_img1_HR, warped_img0_LR, warped_img2_LR = self.fusionnet(
-            img0_HR, img1_HR, img0_LR, img2_LR, img1_LR, flow_HR, flow_LR, c0_HR, c1_HR, c0_LR, c1_LR)
+            img0_HR, img1_HR, img0_LR, img1_LR, img2_LR, flow_HR, flow_LR_0_1, flow_LR_2_1, c0_HR, c1_HR)
         res = torch.sigmoid(refine_output[:, :3]) * 2 - 1
         mask = torch.sigmoid(refine_output[:, 3:4])
         merged_img = warped_img0_HR * mask + warped_img1_HR * (1 - mask)
@@ -213,14 +220,46 @@ class Model:
         # Concatenation of img0_HR and img1_HR respectively.
         imgs_HR = imgs[:, :6]
         # Concatenation of img0_LR and img2_LR respectively.
-        imgs_LR = imgs[:, 6:12]
-
-        flow_HR, _ = self.flownet(imgs_HR)
-        flow_LR, _ = self.flownet(imgs_LR)
+        img0_LR = imgs[:, 6:9]
+        img1_LR = imgs[:, 9:12]
+        img2_LR = imgs[:, 12:15]
         
-        # 0->1, 2->1
+        flow_HR, _ = self.flownet(imgs_HR)
+        
+        flow_LR_0_1 = self.calculate_flow(               # Flow from t=0 to t=1 (low sr, high fps video)
+            torch.cat((img0_LR, img1_LR), 1))
+       
+        flow_LR_2_1 = self.calculate_flow(               # Flow from t=2 to t=1 (low sr, high fps video)
+            torch.cat((img2_LR, img1_LR), 1))
+        
+        print(flow_LR_0_1.dtype)
+        
 
-        return self.predict(imgs_HR, imgs[:, 6:], flow_HR, flow_LR, training=False)
+        return self.predict(imgs, flow_HR, flow_LR_0_1, flow_LR_2_1, training=False)
+
+    def calculate_flow(self, x):
+        x = F.interpolate(x, scale_factor=0.5, mode="bilinear",
+                          align_corners=False)
+        img0 = x[:, :3].cpu().numpy()
+        img1 = x[:, 3:].cpu().numpy()
+
+        num_samples, _, x, y = img0.shape
+        flow_batch = np.empty((0, 2, x, y))
+        flow_time = []
+        for i in range(num_samples):
+            img0_single = img0[i, :, :, :].reshape(x, y, 3)
+            img1_single = img1[i, :, :, :].reshape(x, y, 3)
+            img0_single = cv2.cvtColor(img0_single, cv2.COLOR_BGR2GRAY)
+            img1_single = cv2.cvtColor(img1_single, cv2.COLOR_BGR2GRAY)
+
+            start2 = time.time()
+            flow_single = cv2.calcOpticalFlowFarneback(img0_single, img1_single, None, pyr_scale=0.2, levels=3,
+                                                       winsize=15, iterations=1, poly_n=1, poly_sigma=1.2, flags=0)
+            end2 = time.time()
+            flow_time.append((end2 - start2) * 1000)
+            flow_single = flow_single.reshape(1, 2, x, y)
+            flow_batch = np.append(flow_batch, flow_single, axis=0)
+        return torch.tensor(flow_batch, dtype=torch.float)
 
     def update(self, imgs, gt, learning_rate=0, mul=1, training=True):
         for param_group in self.optimG.param_groups:
@@ -292,7 +331,7 @@ if __name__ == '__main__':
     img2_LR = torch.from_numpy(np.transpose(img2_LR, (2, 0, 1))).to(
         device, non_blocking=True).unsqueeze(0).float() / 255.
 
-    imgs = torch.cat((img0_HR, img1_HR, img0_LR, img2_LR, img1_LR), 1)
+    imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
     imgs = padding1(imgs)
     model = Model()
     model.eval()
@@ -301,4 +340,4 @@ if __name__ == '__main__':
     result = result[0, :]
     result = np.transpose(result, (1, 2, 0))
     cv2.imshow("win", result)
-    cv2.waitKey(100)
+    cv2.waitKey(10000)

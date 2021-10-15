@@ -115,8 +115,6 @@ def train(model, data_root_p):
                 warped_lr_img0, lr_img0) + L1_lossFn(warped_lr_img2, lr_img2)
 
             loss = L1_loss * 0.8 + warp_loss * 0.4
-    
-            del L1_loss, warp_loss
 
             loss.backward()
             optimizer.step()
