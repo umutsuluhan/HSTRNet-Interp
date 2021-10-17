@@ -18,41 +18,27 @@ from model.pytorch_msssim import ssim
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
 
-def train(model, data_root_p):
-    data_root = data_root_p   # MODIFY IN SERVER
+def train(model):
+    
     logging.basicConfig(filename='logs/training.log', filemode='w',
                         format='%(asctime)s - %(message)s', level=logging.INFO)
 
     logging.info("Device: %s", device)
     logging.info("Batch size: " + str(args.batch_size))
 
-    dataset_HR = VimeoDataset('train', data_root, HR=True)
-    train_data_HR = DataLoader(
-        dataset_HR, batch_size=args.batch_size, num_workers=0, drop_last=True)
-    args.step_per_epoch = train_data_HR.__len__()
+    dataset_train = VimeoDataset('train', args.data_root[0], args.data_root[1])
+    train_data = DataLoader(
+        dataset_train, batch_size=30, num_workers=0, drop_last=True)
 
-    logging.info("Training dataset of HR videos are loaded")
+    logging.info("Training dataset is loaded")
 
-    dataset_LR = VimeoDataset('train', data_root, HR=False)
-    train_data_LR = DataLoader(
-        dataset_LR, batch_size=args.batch_size, num_workers=0, drop_last=True)
-    args.step_per_epoch = train_data_LR.__len__()
+    dataset_val = VimeoDataset('validation', args.data_root[0], args.data_root[1])
+    val_data = DataLoader(
+        dataset_val, batch_size=args.batch_size,  num_workers=0)
 
-    logging.info("Training dataset of LR videos are loaded")
+    logging.info("Validation dataset is loaded")
 
-    dataset_val_HR = VimeoDataset('validation', data_root, HR=True)
-    val_data_HR = DataLoader(
-        dataset_val_HR, batch_size=args.batch_size,  num_workers=0)
-
-    logging.info("Validation dataset of HR videos are loaded")
-
-    dataset_val_LR = VimeoDataset('validation', data_root, HR=False)
-    val_data_LR = DataLoader(
-        dataset_val_LR, batch_size=args.batch_size, num_workers=0)
-
-    logging.info("Validation dataset of LR videos are loaded")
-
-    len_val = dataset_val_HR.__len__()
+    len_val = dataset_val.__len__()
 
     L1_lossFn = nn.L1Loss()
     params = model.return_parameters()
@@ -85,22 +71,21 @@ def train(model, data_root_p):
         valPSNR.append([])
         iloss = 0
 
-        for trainIndex, (data_HR, data_LR) in enumerate(zip(train_data_HR, train_data_LR)):
+        for trainIndex, data in enumerate(train_data):
 
-            data_HR = data_HR.to(device, non_blocking=True) / 255.
-            data_LR = data_LR.to(device, non_blocking=True) / 255.
+            data = data.to(device, non_blocking=True) / 255.
+            
+            img0_HR = data[:, :3]
+            gt = data[:, 6:9]
+            img1_HR = data[:, 3:6]
 
-            img0_HR = data_HR[:, :3]
-            gt = data_HR[:, 6:9]
-            img1_HR = data_HR[:, 3:6]
-
-            img0_LR = data_LR[:, :3]
+            img0_LR = data[:, 9:12]
             img0_LR = F.interpolate(img0_LR, scale_factor=4, mode='bicubic')
 
-            img1_LR = data_LR[:, 6:9]
+            img1_LR = data[:, 12:15]
             img1_LR = F.interpolate(img1_LR, scale_factor=4, mode='bicubic')
 
-            img2_LR = data_LR[:, 3:6]
+            img2_LR = data[:, 15:18]
             img2_LR = F.interpolate(img2_LR, scale_factor=4, mode='bicubic')
 
             imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
@@ -208,7 +193,7 @@ if __name__ == "__main__":
     parser.add_argument('--epoch', default=300, type=int)
     parser.add_argument('--batch_size', default=12, type=int,
                         help='minibatch size')  # 4 * 12 = 48
-    parser.add_argument('--data_root', required=True, type=str)
+    parser.add_argument('--data_root', nargs=2, required=True, type=str)
     args = parser.parse_args()
 
     seed = 1
