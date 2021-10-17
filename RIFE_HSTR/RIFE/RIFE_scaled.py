@@ -4,11 +4,11 @@ import numpy as np
 from torch.optim import AdamW
 import torch.optim as optim
 import itertools
-from .warplayer import warp
+from warplayer import warp
 from torch.nn.parallel import DistributedDataParallel as DDP
-from .IFNet import *
+from IFNet import *
 import torch.nn.functional as F
-from .loss import *
+from loss import *
 import cv2
 import math
 
@@ -181,11 +181,14 @@ class Model:
             torch.save(self.fusionnet.state_dict(), '{}/unet.pkl'.format(path))
 
     def predict(self, imgs_HR, imgs_LR, flow_HR, flow_LR, training=True):
-        img0_HR = imgs_HR[:, :3]
-        img1_HR = imgs_HR[:, 3:]
-        img0_LR = imgs_LR[:, :3]
-        img2_LR = imgs_LR[:, 3:6]
-        img1_LR = imgs_LR[:, 6:]
+        img0_HR = imgs[:, :3]
+        img1_HR = imgs[:, 3:6]
+        img0_LR = imgs[:, 6:9]
+        img1_LR = imgs[:, 9:12]
+        img2_LR = imgs[:, 12:15]
+
+
+        #Rest of the code is not done yet
 
         c0_HR = self.contextnet(img0_HR, flow_HR[:, :2])
         c1_HR = self.contextnet(img1_HR, flow_HR[:, 2:4])
@@ -210,19 +213,23 @@ class Model:
             return pred
 
     def inference(self, imgs, scale=None):
-        # Concatenation of img0_HR and img1_HR respectively.   0-->1     0.5-->0    0.5-->1       
-        #                                                                1-->0      1-->2
-        # 1-->2       1.5-->1    1.5-->2
+        
         imgs_HR = imgs[:, :6]
-        # Concatenation of img0_LR and img2_LR respectively.
-        imgs_LR = imgs[:, 6:12]
+        
+        img0_LR = imgs[:, 6:9]
+        img1_LR = imgs[:, 9:12]
+        img2_LR = imgs[:, 12:15]
+
 
         flow_HR, _ = self.flownet(imgs_HR)
-        flow_LR, _ = self.flownet(imgs_LR)
+        flow_LR_0_1, _ = self.flownet(torch.cat((img0_LR, img1_LR),1))
+        flow_LR_1_2, _ = self.flownet(torch.cat((img1_LR, img2_LR),1))
         
-        # 0->1, 2->1
+        flow_LR_0_1 = flow_LR_0_1 * 2
+        flow_LR_1_2 = flow_LR_1_2 * 2
+       
 
-        return self.predict(imgs_HR, imgs[:, 6:], flow_HR, flow_LR, training=False)
+        return self.predict(imgs, flow_HR, flow_LR_0_1, flow_LR_1_2, training=False)
 
     def update(self, imgs, gt, learning_rate=0, mul=1, training=True):
         for param_group in self.optimG.param_groups:
@@ -294,7 +301,7 @@ if __name__ == '__main__':
     img2_LR = torch.from_numpy(np.transpose(img2_LR, (2, 0, 1))).to(
         device, non_blocking=True).unsqueeze(0).float() / 255.
 
-    imgs = torch.cat((img0_HR, img1_HR, img0_LR, img2_LR, img1_LR), 1)
+    imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
     imgs = padding1(imgs)
     model = Model()
     model.eval()
@@ -303,4 +310,4 @@ if __name__ == '__main__':
     result = result[0, :]
     result = np.transpose(result, (1, 2, 0))
     cv2.imshow("win", result)
-    cv2.waitKey(100)
+    cv2.waitKey(2000)

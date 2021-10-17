@@ -9,8 +9,8 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
-from .unet_model import UNet
-from .backwarp import backWarp
+from unet_model import UNet
+from backwarp import backWarp
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -37,10 +37,10 @@ class HSTR_FSS():
 
         # Optical flow method which employs Farneback method to extract flow of each pixel in the image (dense optical flow).
 
-        x = F.interpolate(x, scale_factor=0.5, mode="bilinear",
-                          align_corners=False)
-        img0 = x[:, :3].cpu().numpy()
-        img1 = x[:, 3:].cpu().numpy()
+        # x = F.interpolate(x, scale_factor=0.5, mode="bilinear",
+        #                   align_corners=False)
+        img0 = (x[:, :3].cpu().numpy()*255).astype('uint8')
+        img1 = (x[:, 3:].cpu().numpy()*255).astype('uint8')
 
         num_samples, _, x, y = img0.shape
         flow_batch = np.empty((0, 2, x, y))
@@ -95,6 +95,8 @@ class HSTR_FSS():
 
         hr_F_0_1 = self.optical_flow_est(               # Flow from t=0 to t=1 (high sr, low fps video)
             torch.cat((hr_img0, hr_img1), 1))
+        
+        print(hr_F_0_1.shape)
 
         hr_F_1_0 = self.optical_flow_est(               # Flow from t=1 to t=0 (high sr, low fps video)
             torch.cat((hr_img1, hr_img0), 1))
@@ -138,3 +140,47 @@ class HSTR_FSS():
             return result
         else:
             return result, g_I0_F_t_0, g_I1_F_t_1, warped_lr_img1_0, lr_img0, warped_lr_img1_2, lr_img2
+        
+if __name__ == '__main__':
+    img0_HR = cv2.imread(
+        "/home/hus/Desktop/repos/HSTRNet/images/original_vid/0.png")
+    img1_HR = cv2.imread(
+        "/home/hus/Desktop/repos/HSTRNet/images/original_vid/1.png")
+
+    img0_LR = cv2.imread(
+        "/home/hus/Desktop/repos/HSTRNet/images/2X_vid/0000000.png")
+    img1_LR = cv2.imread(
+        "/home/hus/Desktop/repos/HSTRNet/images/2X_vid/0000001.png")
+    img2_LR = cv2.imread(
+        "/home/hus/Desktop/repos/HSTRNet/images/2X_vid/0000002.png")
+
+    padding1_mult = math.floor(img0_HR.shape[0] / 32) + 1
+    padding2_mult = math.floor(img0_HR.shape[1] / 32) + 1
+    pad1 = (32 * padding1_mult) - img0_HR.shape[0]
+    pad2 = (32 * padding2_mult) - img0_HR.shape[1]
+
+    # Padding to meet dimension requirements of the network
+    # Done before network call, otherwise slows down the network
+    padding1 = nn.ReplicationPad2d((0, pad2, pad1, 0))
+
+    img0_HR = torch.from_numpy(np.transpose(img0_HR, (2, 0, 1))).to(
+        device, non_blocking=True).unsqueeze(0).float() / 255.
+    img1_HR = torch.from_numpy(np.transpose(img1_HR, (2, 0, 1))).to(
+        device, non_blocking=True).unsqueeze(0).float() / 255.
+    img0_LR = torch.from_numpy(np.transpose(img0_LR, (2, 0, 1))).to(
+        device, non_blocking=True).unsqueeze(0).float() / 255.
+    img1_LR = torch.from_numpy(np.transpose(img1_LR, (2, 0, 1))).to(
+        device, non_blocking=True).unsqueeze(0).float() / 255.
+    img2_LR = torch.from_numpy(np.transpose(img2_LR, (2, 0, 1))).to(
+        device, non_blocking=True).unsqueeze(0).float() / 255.
+
+    imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
+    imgs = padding1(imgs)
+    model = HSTR_FSS()
+    #model.eval()
+
+    result = model.inference(imgs, []).cpu().detach().numpy()
+    result = result[0, :]
+    result = np.transpose(result, (1, 2, 0))
+    cv2.imshow("win", result)
+    cv2.waitKey(10000)
