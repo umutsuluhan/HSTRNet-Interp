@@ -37,8 +37,8 @@ class HSTR_FSS():
 
         # Optical flow method which employs Farneback method to extract flow of each pixel in the image (dense optical flow).
 
-        # x = F.interpolate(x, scale_factor=0.5, mode="bilinear",
-        #                   align_corners=False)
+        x = F.interpolate(x, scale_factor=0.5, mode="bilinear",
+                          align_corners=False)
         img0 = (x[:, :3].cpu().numpy()*255).astype('uint8')
         img1 = (x[:, 3:].cpu().numpy()*255).astype('uint8')
 
@@ -96,16 +96,22 @@ class HSTR_FSS():
         hr_F_0_1 = self.optical_flow_est(               # Flow from t=0 to t=1 (high sr, low fps video)
             torch.cat((hr_img0, hr_img1), 1))
         
-        print(hr_F_0_1.shape)
+        hr_F_0_1 = hr_F_0_1 * 2
 
         hr_F_1_0 = self.optical_flow_est(               # Flow from t=1 to t=0 (high sr, low fps video)
             torch.cat((hr_img1, hr_img0), 1))
+        
+        hr_F_1_0 = hr_F_1_0 * 2
 
         lr_F_1_0 = self.optical_flow_est(               # Flow from t=0 to t=1 (low sr, high fps video)
             torch.cat((lr_img1, lr_img0), 1))
+        
+        lr_F_1_0 = lr_F_1_0 * 2
        
         lr_F_1_2 = self.optical_flow_est(               # Flow from t=2 to t=1 (low sr, high fps video)
             torch.cat((lr_img1, lr_img2), 1))
+        
+        lr_F_1_2 = lr_F_1_2 * 2
 
         F_t_0, F_t_1 = self.intermediate_flow_est(       # Flow from t to 0 and flow from t to 1 using provided low fps video frames
             torch.cat((hr_F_0_1, hr_F_1_0), 1), 0.5)
