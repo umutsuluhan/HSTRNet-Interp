@@ -99,11 +99,11 @@ class HSTR_FSS():
         hr_F_1_0 = self.optical_flow_est(               # Flow from t=1 to t=0 (high sr, low fps video)
             torch.cat((hr_img1, hr_img0), 1))
 
-        lr_F_0_1 = self.optical_flow_est(               # Flow from t=0 to t=1 (low sr, high fps video)
-            torch.cat((lr_img0, lr_img1), 1))
+        lr_F_1_0 = self.optical_flow_est(               # Flow from t=0 to t=1 (low sr, high fps video)
+            torch.cat((lr_img1, lr_img0), 1))
        
-        lr_F_2_1 = self.optical_flow_est(               # Flow from t=2 to t=1 (low sr, high fps video)
-            torch.cat((lr_img2, lr_img1), 1))
+        lr_F_1_2 = self.optical_flow_est(               # Flow from t=2 to t=1 (low sr, high fps video)
+            torch.cat((lr_img1, lr_img2), 1))
 
         F_t_0, F_t_1 = self.intermediate_flow_est(       # Flow from t to 0 and flow from t to 1 using provided low fps video frames
             torch.cat((hr_F_0_1, hr_F_1_0), 1), 0.5)
@@ -122,15 +122,12 @@ class HSTR_FSS():
         # Backwarp of I1 and F_t_1
         g_I1_F_t_1 = backwarp(hr_img1, F_t_1)
 
-        # Backwarp of LR_I0 and F_t_0
-        warped_lr_img0 = backwarp(lr_img1, lr_F_0_1)
-
-        # Backwarp of LR_I2 and F_t_0
-        warped_lr_img2 = backwarp(lr_img1, lr_F_2_1)
+        warped_lr_img1_0 = backwarp(lr_img0, lr_F_1_0)
+        warped_lr_img1_2 = backwarp(lr_img2, lr_F_1_2)
 
 
         input_imgs = torch.cat(
-            (warped_lr_img0,  lr_img1, warped_lr_img2, g_I0_F_t_0, g_I1_F_t_1), dim=1)
+            (warped_lr_img1_0,  lr_img1, warped_lr_img1_2, g_I0_F_t_0, g_I1_F_t_1), dim=1)
 
 
         Ft_p = self.unet(input_imgs)
@@ -140,4 +137,4 @@ class HSTR_FSS():
         if training == False:
             return result
         else:
-            return result, g_I0_F_t_0, g_I1_F_t_1, warped_lr_img0, lr_img0, warped_lr_img2, lr_img2
+            return result, g_I0_F_t_0, g_I1_F_t_1, warped_lr_img1_0, lr_img0, warped_lr_img1_2, lr_img2
