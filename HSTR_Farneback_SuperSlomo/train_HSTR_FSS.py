@@ -70,7 +70,6 @@ def train(model, data_root_p):
     logging.info("Training is starting")
 
     start = time.time()
-    checkpoint_counter = 0
 
     for epoch in range(args.epoch):
 
@@ -157,8 +156,7 @@ def train(model, data_root_p):
                 'state_dict_model': model.unet.state_dict(),
             }
             torch.save(dict1, "model_dict" + "/HSTR_" +
-                       str(checkpoint_counter) + ".ckpt")
-            checkpoint_counter += 1
+                       str(epoch) + ".ckpt")
 
     torch.save(model.unet.state_dict(), '{}/unet.pkl'.format("model_dict"))
 
