@@ -64,6 +64,9 @@ class HSTR_FSS():
             end2 = time.time()
             flow_time.append((end2 - start2) * 1000)
             flow_single = flow_single.reshape(1, 2, x, y)
+            
+            # Yukarıdaki kod düzeltilecek hatalı
+            
             flow_batch = np.append(flow_batch, flow_single, axis=0)
         return torch.tensor(flow_batch, dtype=torch.float, device=device)
 
