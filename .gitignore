@@ -5,3 +5,6 @@
 /model_dict
 /__pycache__
 /HSTR_Farneback_SuperSlomo/model/__pycache__/
+/HSTR_Farneback_SuperSlomo/logs/
+HSTR_Farneback_SuperSlomo/model/pytorch_msssim/__pycache__/
+/HSTR_Farneback_SuperSlomo/__pycache__/

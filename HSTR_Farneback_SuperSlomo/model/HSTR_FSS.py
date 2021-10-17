@@ -9,10 +9,10 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
-from unet_model import UNet
-from backwarp import backWarp
+from .unet_model import UNet
+from .backwarp import backWarp
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
 class HSTR_FSS():
 

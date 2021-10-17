@@ -11,7 +11,7 @@ import datetime
 import math
 import logging
 
-from model.FastRIFE_Super_Slomo.HSTR_FSS import HSTR_FSS
+from model.HSTR_FSS import HSTR_FSS
 from dataset import VimeoDataset, DataLoader
 from model.pytorch_msssim import ssim
 
@@ -20,21 +20,18 @@ device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
 def train(model):
     
-    logging.basicConfig(filename='logs/training.log', filemode='w',
-                        format='%(asctime)s - %(message)s', level=logging.INFO)
-
     logging.info("Device: %s", device)
     logging.info("Batch size: " + str(args.batch_size))
 
-    dataset_train = VimeoDataset('train', args.data_root[0], args.data_root[1])
+    dataset_train = VimeoDataset('train', args.data_root)
     train_data = DataLoader(
-        dataset_train, batch_size=30, num_workers=0, drop_last=True)
+        dataset_train, batch_size=args.batch_size, num_workers=0, drop_last=True, shuffle=True)
 
     logging.info("Training dataset is loaded")
 
-    dataset_val = VimeoDataset('validation', args.data_root[0], args.data_root[1])
+    dataset_val = VimeoDataset('validation', args.data_root)
     val_data = DataLoader(
-        dataset_val, batch_size=args.batch_size,  num_workers=0)
+        dataset_val, batch_size=args.batch_size,  num_workers=0, shuffle=True)
 
     logging.info("Validation dataset is loaded")
 
@@ -80,13 +77,8 @@ def train(model):
             img1_HR = data[:, 3:6]
 
             img0_LR = data[:, 9:12]
-            img0_LR = F.interpolate(img0_LR, scale_factor=4, mode='bicubic')
-
             img1_LR = data[:, 12:15]
-            img1_LR = F.interpolate(img1_LR, scale_factor=4, mode='bicubic')
-
             img2_LR = data[:, 15:18]
-            img2_LR = F.interpolate(img2_LR, scale_factor=4, mode='bicubic')
 
             imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
 
@@ -191,9 +183,9 @@ def validate(model, val_data_HR, val_data_LR, len_val):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train')
     parser.add_argument('--epoch', default=300, type=int)
-    parser.add_argument('--batch_size', default=12, type=int,
+    parser.add_argument('--batch_size', default=18, type=int,
                         help='minibatch size')  # 4 * 12 = 48
-    parser.add_argument('--data_root', nargs=2, required=True, type=str)
+    parser.add_argument('--data_root', required=True, type=str)
     args = parser.parse_args()
 
     seed = 1
@@ -203,8 +195,11 @@ if __name__ == "__main__":
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.benchmark = True
 
+    logging.basicConfig(filename='logs/training.log', filemode='w',
+                        format='%(asctime)s - %(message)s', level=logging.INFO)
+
     model = HSTR_FSS()
     try:
-        train(model, args.data_root)
+        train(model)
     except Exception as e:
         logging.exception("Unexpected exception! %s", e)

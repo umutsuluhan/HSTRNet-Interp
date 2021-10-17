@@ -1,6 +1,7 @@
 import cv2
 import torch
 import numpy as np
+import torch.nn.functional as F
 import random
 from torch.utils.data import DataLoader, Dataset
 import os
@@ -8,11 +9,10 @@ import os
 cv2.setNumThreads(1)
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 class VimeoDataset(Dataset):
-    def __init__(self, dataset_name, data_root_HR, data_root_LR, batch_size=32):
+    def __init__(self, dataset_name, data_root, batch_size=32):
         self.batch_size = batch_size
         self.dataset_name = dataset_name
-        self.data_root_HR = data_root_HR
-        self.data_root_LR = data_root_LR
+        self.data_root = data_root
         self.load_data()
         self.h = 256
         self.w = 448
@@ -21,26 +21,24 @@ class VimeoDataset(Dataset):
         self.grid = np.stack((xx,yy),2).copy()
 
     def __len__(self):
-        return len(self.meta_data)
+        return len(self.meta_data_HR)
 
     def load_data(self):
         self.trainlist_HR = []
         self.trainlist_LR = []
         self.testlist_HR = []
         self.testlist_LR = []
-        data_path_HR = os.path.join(self.data_root_HR, "sequences/")
-        data_path_LR = os.path.join(self.data_root_LR, "x4_downsampled_sequences/")
-        train_path_HR = os.path.join(self.data_root_HR, 'tri_trainlist.txt')
-        train_path_LR = os.path.join(self.data_root_LR, 'tri_trainlist.txt')
-        test_path_HR = os.path.join(self.data_root_HR, 'tri_testlist.txt')
-        test_path_LR = os.path.join(self.data_root_HR, 'tri_testlist.txt')
-        with open(train_path_HR, 'r') as f:
+        data_path_HR = os.path.join(self.data_root, "sequences/")
+        data_path_LR = os.path.join(self.data_root, "x4_downsampled_sequences/")
+        train_path = os.path.join(self.data_root, 'tri_trainlist.txt')
+        test_path = os.path.join(self.data_root, 'tri_testlist.txt')
+        with open(train_path, 'r') as f:
             self.trainlist_HR = f.read().splitlines()
-        with open(train_path_LR, 'r') as f:
+        with open(train_path, 'r') as f:
             self.trainlist_LR = f.read().splitlines()
-        with open(test_path_HR, 'r') as f:
+        with open(test_path, 'r') as f:
             self.testlist_HR = f.read().splitlines()
-        with open(test_path_LR, 'r') as f:
+        with open(test_path, 'r') as f:
             self.testlist_LR = f.read().splitlines()
 
         for i, entry in enumerate(self.trainlist_HR):
@@ -58,13 +56,13 @@ class VimeoDataset(Dataset):
 
         if self.dataset_name == 'train':
             self.meta_data_HR = self.trainlist_HR
-            self.meta_data_LR = self.trainlist_HR
-            print('Number of training samples in: ' + str(self.data_root_HR.split("/")[-1]), len(self.meta_data))
+            self.meta_data_LR = self.trainlist_LR
+            print('Number of training samples in: ' + str(self.data_root.split("/")[-1]), len(self.meta_data_HR))
         else:
             self.meta_data_HR = self.testlist_HR
             self.meta_data_LR = self.testlist_LR
-            print('Number of validation samples in: ' + str(self.data_root_HR.split("/")[-1]), len(self.meta_data))
-        self.nr_sample = len(self.meta_data)
+            print('Number of validation samples in: ' + str(self.data_root.split("/")[-1]), len(self.meta_data_HR))
+        self.nr_sample = len(self.meta_data_HR)
 
     def aug(self, img0, gt, img1, h, w):
         ih, iw, _ = img0.shape
@@ -89,7 +87,7 @@ class VimeoDataset(Dataset):
         img0_LR = cv2.imread(imgpaths_LR[0])
         img1_LR = cv2.imread(imgpaths_LR[1])
         img2_LR = cv2.imread(imgpaths_LR[2])
-        
+
         return img0_HR, gt, img1_HR, img0_LR, img1_LR, img2_LR
 
     def __getitem__(self, index):
@@ -102,9 +100,15 @@ class VimeoDataset(Dataset):
             img0_HR = torch.from_numpy(img0_HR.copy()).permute(2, 0, 1)
             img1_HR = torch.from_numpy(img1_HR.copy()).permute(2, 0, 1)
             gt = torch.from_numpy(gt.copy()).permute(2, 0, 1)
+
             img0_LR = torch.from_numpy(img0_LR.copy()).permute(2, 0, 1)
+            img0_LR = img0_LR.unsqueeze(0)
+            print(img0_LR.shape)
+            img0_LR = F.interpolate(img0_LR, scale_factor=4, mode='bicubic')
             img1_LR = torch.from_numpy(img1_LR.copy()).permute(2, 0, 1)
+            img1_LR = F.interpolate(img1_LR, scale_factor=4, mode='bicubic')
             img2_LR = torch.from_numpy(img2_LR.copy()).permute(2, 0, 1)
+            img2_LR = F.interpolate(img2_LR, scale_factor=4, mode='bicubic')
             return torch.cat((img0_HR, img1_HR, gt, img0_LR, img1_LR, img2_LR), 0)
             if random.uniform(0, 1) < 0.5:
                 img0_HR = img0_HR[:, :, ::-1]
