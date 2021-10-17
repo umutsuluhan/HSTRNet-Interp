@@ -90,6 +90,34 @@ class VimeoDataset(Dataset):
 
         return img0_HR, gt, img1_HR, img0_LR, img1_LR, img2_LR
 
+    def interpolation(self, imgs):
+        img0_LR = imgs[:3, :]
+        img1_LR = imgs[3:6, :]
+        img2_LR = imgs[6:9, :]
+        
+        img0_LR = img0_LR.type(torch.Tensor)
+        img0_LR = img0_LR.unsqueeze(0)
+        img0_LR = F.interpolate(img0_LR, scale_factor=4, mode='bicubic')
+        
+        img1_LR = img1_LR.type(torch.Tensor)
+        img1_LR = img1_LR.unsqueeze(0)
+        img1_LR = F.interpolate(img1_LR, scale_factor=4, mode='bicubic')
+        
+        img2_LR = img2_LR.type(torch.Tensor)
+        img2_LR = img2_LR.unsqueeze(0)
+        img2_LR = F.interpolate(img2_LR, scale_factor=4, mode='bicubic')
+
+        img0_LR = img0_LR.squeeze(0)
+        img0_LR = img0_LR.type(torch.uint8)
+        
+        img1_LR = img1_LR.squeeze(0)
+        img1_LR = img1_LR.type(torch.uint8)
+
+        img2_LR = img2_LR.squeeze(0)
+        img2_LR = img2_LR.type(torch.uint8)
+
+        return img0_LR, img1_LR, img2_LR
+
     def __getitem__(self, index):
         img0_HR, gt, img1_HR, img0_LR, img1_LR, img2_LR = self.getimg(index)
 
@@ -102,13 +130,12 @@ class VimeoDataset(Dataset):
             gt = torch.from_numpy(gt.copy()).permute(2, 0, 1)
 
             img0_LR = torch.from_numpy(img0_LR.copy()).permute(2, 0, 1)
-            img0_LR = img0_LR.unsqueeze(0)
-            print(img0_LR.shape)
-            img0_LR = F.interpolate(img0_LR, scale_factor=4, mode='bicubic')
             img1_LR = torch.from_numpy(img1_LR.copy()).permute(2, 0, 1)
-            img1_LR = F.interpolate(img1_LR, scale_factor=4, mode='bicubic')
             img2_LR = torch.from_numpy(img2_LR.copy()).permute(2, 0, 1)
-            img2_LR = F.interpolate(img2_LR, scale_factor=4, mode='bicubic')
+
+            imgs_LR = torch.cat((img0_LR, img1_LR, img2_LR), 0) 
+            img0_LR, img1_LR, img2_LR = self.interpolation(imgs_LR)
+
             return torch.cat((img0_HR, img1_HR, gt, img0_LR, img1_LR, img2_LR), 0)
             if random.uniform(0, 1) < 0.5:
                 img0_HR = img0_HR[:, :, ::-1]
