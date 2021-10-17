@@ -46,8 +46,8 @@ class HSTR_FSS():
         flow_batch = np.empty((0, 2, x, y))
         flow_time = []
         for i in range(num_samples):
-            img0_single = img0[i, :, :, :].reshape(x, y, 3)
-            img1_single = img1[i, :, :, :].reshape(x, y, 3)
+            img0_single = np.transpose(img0[i, :, :, :], (1, 2, 0))
+            img1_single = np.transpose(img1[i, :, : ,:], (1, 2, 0))
             img0_single = cv2.cvtColor(img0_single, cv2.COLOR_BGR2GRAY)
             img1_single = cv2.cvtColor(img1_single, cv2.COLOR_BGR2GRAY)
 
