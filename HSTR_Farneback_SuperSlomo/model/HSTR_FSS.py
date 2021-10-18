@@ -52,9 +52,7 @@ class HSTR_FSS():
             img1_single = cv2.cvtColor(img1_single, cv2.COLOR_BGR2GRAY)
 
             start2 = time.time()
-            flow_single = cv2.calcOpticalFlowFarneback(img0_single, img1_single, None, pyr_scale=0.2, levels=3,
-                                                       winsize=15, iterations=1, poly_n=1, poly_sigma=1.2, flags=0)
-            
+            flow_single = cv2.calcOpticalFlowFarneback(img0_single, img1_single, None, pyr_scale=0.8, levels=15, winsize=15, iterations=15, poly_n=5, poly_sigma=1.5, flags=0)
             
             # Flow debug kodu
             # image = self.flow2rgb(flow_single)
@@ -63,9 +61,8 @@ class HSTR_FSS():
             
             end2 = time.time()
             flow_time.append((end2 - start2) * 1000)
-            flow_single = flow_single.reshape(1, 2, x, y)
-            
-            # Yukarıdaki kod düzeltilecek hatalı
+            flow_single = np.transpose(flow_single, (2, 0, 1))
+            flow_single = flow_single[np.newaxis, :]
             
             flow_batch = np.append(flow_batch, flow_single, axis=0)
         return torch.tensor(flow_batch, dtype=torch.float, device=device)
