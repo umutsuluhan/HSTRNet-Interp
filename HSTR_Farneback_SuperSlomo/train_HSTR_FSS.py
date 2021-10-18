@@ -1,5 +1,5 @@
 import argparse
-#import cv2
+import cv2
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -73,12 +73,59 @@ def train(model):
             data = data.to(device, non_blocking=True) / 255.
             
             img0_HR = data[:, :3]
+            #test = img0_HR[:1,:]
+            #test = test[0,:]
+            #test = test.cpu().detach().numpy()
+            #test = np.transpose(test, (1, 2, 0))
+            #test = 255 * (test - test.min()) / (test.max() - test.min())
+            #test = np.array(test, np.int)
+            #cv2.imwrite("logs/hr0.jpg", test)
+            #cv2.imshow("win", test)
+            #cv2.waitKey(5000)
             gt = data[:, 6:9]
+            #test = gt[:1,:]
+            #test = test[0,:]
+            #test = test.cpu().detach().numpy()
+            #test = np.transpose(test, (1, 2, 0))
+            #test = 255 * (test - test.min()) / (test.max() - test.min())
+            #test = np.array(test, np.int)
+            #cv2.imwrite("logs/hr1.jpg", test)
+
             img1_HR = data[:, 3:6]
+            #test = img1_HR[:1,:]
+            #test = test[0,:]
+            #test = test.cpu().detach().numpy()
+            #test = np.transpose(test, (1, 2, 0))
+            #test = 255 * (test - test.min()) / (test.max() - test.min())
+            #test = np.array(test, np.int)
+            #cv2.imwrite("logs/hr2.jpg", test)
 
             img0_LR = data[:, 9:12]
+            #test = img0_LR[:1,:]
+            #test = test[0,:]
+            #test = test.cpu().detach().numpy()
+            #test = np.transpose(test, (1, 2, 0))
+            #test = 255 * (test - test.min()) / (test.max() - test.min())
+            #test = np.array(test, np.int)
+            #cv2.imwrite("logs/lr0.jpg", test)
+
             img1_LR = data[:, 12:15]
+            #test = img1_LR[:1,:]
+            #test = test[0,:]
+            #test = test.cpu().detach().numpy()
+            #test = np.transpose(test, (1, 2, 0))
+            #test = 255 * (test - test.min()) / (test.max() - test.min())
+            #test = np.array(test, np.int)
+            #cv2.imwrite("logs/lr1.jpg", test)
+            
             img2_LR = data[:, 15:18]
+            #test = img2_LR[:1,:]
+            #test = test[0,:]
+            #test = test.cpu().detach().numpy()
+            #test = np.transpose(test, (1, 2, 0))
+            #test = 255 * (test - test.min()) / (test.max() - test.min())
+            #test = np.array(test, np.int)
+            #cv2.imwrite("logs/lr2.jpg", test)
 
             imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
 
@@ -183,7 +230,7 @@ def validate(model, val_data_HR, val_data_LR, len_val):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train')
     parser.add_argument('--epoch', default=300, type=int)
-    parser.add_argument('--batch_size', default=18, type=int,
+    parser.add_argument('--batch_size', default=12, type=int,
                         help='minibatch size')  # 4 * 12 = 48
     parser.add_argument('--data_root', required=True, type=str)
     args = parser.parse_args()
