@@ -121,7 +121,7 @@ def train(model):
 
             end = time.time()
 
-            if(trainIndex % 500 == 0):
+            if(trainIndex % 500 == 0 and trainIndex != 0):
 
                 print("Validating, Train Index: " + str(trainIndex))
                 logging.info("Validating, Train Index: " + str(trainIndex))

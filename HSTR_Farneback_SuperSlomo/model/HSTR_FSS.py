@@ -52,8 +52,8 @@ class HSTR_FSS():
             img1_single = cv2.cvtColor(img1_single, cv2.COLOR_BGR2GRAY)
 
             start2 = time.time()
-            flow_single = cv2.calcOpticalFlowFarneback(img0_single, img1_single, None, pyr_scale=0.8, levels=15, winsize=15, iterations=15, poly_n=5, poly_sigma=1.5, flags=0)
-            
+            flow_single = cv2.calcOpticalFlowFarneback(img0_single, img1_single, None, pyr_scale=0.5, levels=3, winsize=15, iterations=3, poly_n=5, poly_sigma=1.2, flags=0)
+
             # Flow debug kodu
             # image = self.flow2rgb(flow_single)
             # cv2.imshow("win", image)
