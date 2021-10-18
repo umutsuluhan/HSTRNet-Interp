@@ -219,7 +219,7 @@ def validate(model, val_data, len_val):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train')
     parser.add_argument('--epoch', default=300, type=int)
-    parser.add_argument('--batch_size', default=12, type=int,
+    parser.add_argument('--batch_size', default=6, type=int,
                         help='minibatch size')  # 4 * 12 = 48
     parser.add_argument('--data_root', required=True, type=str)
     args = parser.parse_args()
