@@ -17,6 +17,15 @@ from model.pytorch_msssim import ssim
 
 device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
+def img_to_jpg(img):
+    test = img[:1,:]
+    test = test[0,:]
+    test = test.cpu().detach().numpy()
+    test = np.transpose(test, (1, 2, 0))
+    test = 255 * (test - test.min()) / (test.max() - test.min())
+    test = np.array(test, np.int)
+    return test
+    
 
 def train(model):
     
@@ -31,7 +40,7 @@ def train(model):
 
     dataset_val = VimeoDataset('validation', args.data_root)
     val_data = DataLoader(
-        dataset_val, batch_size=args.batch_size,  num_workers=0, shuffle=True)
+        dataset_val, batch_size=args.batch_size,  num_workers=0, shuffle=False)
 
     logging.info("Validation dataset is loaded")
 
@@ -73,59 +82,28 @@ def train(model):
             data = data.to(device, non_blocking=True) / 255.
             
             img0_HR = data[:, :3]
-            #test = img0_HR[:1,:]
-            #test = test[0,:]
-            #test = test.cpu().detach().numpy()
-            #test = np.transpose(test, (1, 2, 0))
-            #test = 255 * (test - test.min()) / (test.max() - test.min())
-            #test = np.array(test, np.int)
-            #cv2.imwrite("logs/hr0.jpg", test)
-            #cv2.imshow("win", test)
-            #cv2.waitKey(5000)
+            test = img_to_jpg(img0_HR)
+            cv2.imwrite("logs/train/hr0.jpg", test)
+            
             gt = data[:, 6:9]
-            #test = gt[:1,:]
-            #test = test[0,:]
-            #test = test.cpu().detach().numpy()
-            #test = np.transpose(test, (1, 2, 0))
-            #test = 255 * (test - test.min()) / (test.max() - test.min())
-            #test = np.array(test, np.int)
-            #cv2.imwrite("logs/hr1.jpg", test)
+            test = img_to_jpg(gt)
+            cv2.imwrite("logs/train/hr1.jpg", test)
 
             img1_HR = data[:, 3:6]
-            #test = img1_HR[:1,:]
-            #test = test[0,:]
-            #test = test.cpu().detach().numpy()
-            #test = np.transpose(test, (1, 2, 0))
-            #test = 255 * (test - test.min()) / (test.max() - test.min())
-            #test = np.array(test, np.int)
-            #cv2.imwrite("logs/hr2.jpg", test)
+            test = img_to_jpg(img1_HR)
+            cv2.imwrite("logs/train/hr2.jpg", test)
 
             img0_LR = data[:, 9:12]
-            #test = img0_LR[:1,:]
-            #test = test[0,:]
-            #test = test.cpu().detach().numpy()
-            #test = np.transpose(test, (1, 2, 0))
-            #test = 255 * (test - test.min()) / (test.max() - test.min())
-            #test = np.array(test, np.int)
-            #cv2.imwrite("logs/lr0.jpg", test)
+            test = img_to_jpg(img0_LR)
+            cv2.imwrite("logs/train/lr0.jpg", test)
 
             img1_LR = data[:, 12:15]
-            #test = img1_LR[:1,:]
-            #test = test[0,:]
-            #test = test.cpu().detach().numpy()
-            #test = np.transpose(test, (1, 2, 0))
-            #test = 255 * (test - test.min()) / (test.max() - test.min())
-            #test = np.array(test, np.int)
-            #cv2.imwrite("logs/lr1.jpg", test)
+            test = img_to_jpg(img1_LR)
+            cv2.imwrite("logs/train/lr1.jpg", test)
             
             img2_LR = data[:, 15:18]
-            #test = img2_LR[:1,:]
-            #test = test[0,:]
-            #test = test.cpu().detach().numpy()
-            #test = np.transpose(test, (1, 2, 0))
-            #test = 255 * (test - test.min()) / (test.max() - test.min())
-            #test = np.array(test, np.int)
-            #cv2.imwrite("logs/lr2.jpg", test)
+            test = img_to_jpg(img2_LR)
+            cv2.imwrite("logs/train/lr2.jpg", test)
 
             imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
 
@@ -150,7 +128,7 @@ def train(model):
 
                 with torch.no_grad():
                     psnr, vLoss, ssim = validate(
-                        model, val_data_HR, val_data_LR, len_val)
+                        model, val_data, len_val)
 
                     valPSNR[epoch].append(psnr)
                     valLoss[epoch].append(vLoss)
@@ -185,7 +163,7 @@ def train(model):
     torch.save(model.unet.state_dict(), '{}/unet.pkl'.format("model_dict"))
 
 
-def validate(model, val_data_HR, val_data_LR, len_val):
+def validate(model, val_data, len_val):
     model.unet.eval()
 
     val_loss = 0
@@ -195,22 +173,33 @@ def validate(model, val_data_HR, val_data_LR, len_val):
     L1_lossFn = nn.L1Loss()
     MSE_LossFn = nn.MSELoss()
 
-    for i, (data_HR, data_LR) in enumerate(zip(val_data_HR, val_data_LR)):
-        data_HR = data_HR.to(device, non_blocking=True) / 255.
-        data_LR = data_LR.to(device, non_blocking=True) / 255.
+    for trainIndex, data in enumerate(val_data):
 
-        img0_HR = data_HR[:, :3]
-        gt = data_HR[:, 6:9]
-        img1_HR = data_HR[:, 3:6]
+        data = data.to(device, non_blocking=True) / 255.
+            
+        img0_HR = data[:, :3]
+        test = img_to_jpg(img0_HR)
+        cv2.imwrite("logs/val/hr0.jpg", test)
+            
+        gt = data[:, 6:9]
+        test = img_to_jpg(gt)
+        cv2.imwrite("logs/val/hr1.jpg", test)
 
-        img0_LR = data_LR[:, :3]
-        img0_LR = F.interpolate(img0_LR, scale_factor=4, mode='bicubic')
+        img1_HR = data[:, 3:6]
+        test = img_to_jpg(img1_HR)
+        cv2.imwrite("logs/val/hr2.jpg", test)
 
-        img1_LR = data_LR[:, 6:9]
-        img1_LR = F.interpolate(img1_LR, scale_factor=4, mode='bicubic')
+        img0_LR = data[:, 9:12]
+        test = img_to_jpg(img0_LR)
+        cv2.imwrite("logs/val/lr0.jpg", test)
 
-        img2_LR = data_LR[:, 3:6]
-        img2_LR = F.interpolate(img2_LR, scale_factor=4, mode='bicubic')
+        img1_LR = data[:, 12:15]
+        test = img_to_jpg(img1_LR)
+        cv2.imwrite("logs/val/lr1.jpg", test)
+            
+        img2_LR = data[:, 15:18]
+        test = img_to_jpg(img2_LR)
+        cv2.imwrite("logs/val/lr2.jpg", test)
 
         imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
 
