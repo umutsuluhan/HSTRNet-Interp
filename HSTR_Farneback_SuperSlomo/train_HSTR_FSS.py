@@ -15,7 +15,7 @@ from model.HSTR_FSS import HSTR_FSS
 from dataset import VimeoDataset, DataLoader
 from model.pytorch_msssim import ssim
 
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
 def img_to_jpg(img):
     test = img[:1,:]
@@ -32,13 +32,13 @@ def train(model):
     logging.info("Device: %s", device)
     logging.info("Batch size: " + str(args.batch_size))
 
-    dataset_train = VimeoDataset('train', args.data_root)
+    dataset_train = VimeoDataset('train', args.data_root, device)
     train_data = DataLoader(
         dataset_train, batch_size=12, num_workers=0, drop_last=True, shuffle=True)
 
     logging.info("Training dataset is loaded")
 
-    dataset_val = VimeoDataset('validation', args.data_root)
+    dataset_val = VimeoDataset('validation', args.data_root, device)
     val_data = DataLoader(
         dataset_val, batch_size=12,  num_workers=0, shuffle=False)
 
@@ -78,6 +78,9 @@ def train(model):
         iloss = 0
 
         for trainIndex, data in enumerate(train_data):
+
+            if(trainIndex % 100 == 0):
+                print("Train Index:" + str(trainIndex))
 
             data = data.to(device, non_blocking=True) / 255.
             
@@ -138,7 +141,7 @@ def train(model):
                 print(" Loss: %0.6f  TrainExecTime: %0.1f  ValLoss:%0.6f  ValPSNR: %0.4f  ValEvalTime: %0.2f  SSIM: %0.4f " % (
                     iloss / trainIndex, end - start, vLoss, psnr, endVal - end, ssim))
                 logging.info("Train index: " + str(trainIndex) + " Loss: " + str(round(iloss / trainIndex, 6)) +
-                             " TrainExecTime: " + str(round(end - start, 1)) + " ValLoss: " + str(round(vLoss.item(), 6)) +
+                        " TrainExecTime: " + str(round(end - start, 1)) + " ValLoss: " + str(round(vLoss, 6)) +
                              " ValPSNR: " + str(round(psnr, 4)) + " ValEvalTime: " + str(round(endVal - end, 2)) +
                              " SSIM: " + str(round(ssim, 4)))
                 start = time.time()
@@ -234,7 +237,7 @@ if __name__ == "__main__":
     logging.basicConfig(filename='logs/training.log', filemode='w',
                         format='%(asctime)s - %(message)s', level=logging.INFO)
 
-    model = HSTR_FSS()
+    model = HSTR_FSS(device)
     try:
         train(model)
     except Exception as e:

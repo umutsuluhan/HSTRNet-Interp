@@ -7,12 +7,12 @@ from torch.utils.data import DataLoader, Dataset
 import os
 
 cv2.setNumThreads(1)
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 class VimeoDataset(Dataset):
-    def __init__(self, dataset_name, data_root, batch_size=32):
+    def __init__(self, dataset_name, data_root, device, batch_size=32):
         self.batch_size = batch_size
         self.dataset_name = dataset_name
         self.data_root = data_root
+        self.device = device
         self.load_data()
         self.h = 256
         self.w = 448
@@ -94,27 +94,23 @@ class VimeoDataset(Dataset):
         img0_LR = imgs[:3, :]
         img1_LR = imgs[3:6, :]
         img2_LR = imgs[6:9, :]
+
+        img0_LR = img0_LR.type(torch.float32)
+        img1_LR = img1_LR.type(torch.float32)
+        img2_LR = img2_LR.type(torch.float32)
         
-        img0_LR = img0_LR.type(torch.Tensor)
         img0_LR = img0_LR.unsqueeze(0)
         img0_LR = F.interpolate(img0_LR, scale_factor=4, mode='bicubic')
-        
-        img1_LR = img1_LR.type(torch.Tensor)
+    
         img1_LR = img1_LR.unsqueeze(0)
         img1_LR = F.interpolate(img1_LR, scale_factor=4, mode='bicubic')
         
-        img2_LR = img2_LR.type(torch.Tensor)
         img2_LR = img2_LR.unsqueeze(0)
         img2_LR = F.interpolate(img2_LR, scale_factor=4, mode='bicubic')
 
         img0_LR = img0_LR.squeeze(0)
-        img0_LR = img0_LR.type(torch.uint8)
-        
         img1_LR = img1_LR.squeeze(0)
-        img1_LR = img1_LR.type(torch.uint8)
-
         img2_LR = img2_LR.squeeze(0)
-        img2_LR = img2_LR.type(torch.uint8)
 
         return img0_LR, img1_LR, img2_LR
 

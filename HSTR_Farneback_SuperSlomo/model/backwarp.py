@@ -3,9 +3,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-device =  torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-
-
 class backWarp(nn.Module):
     """
     A class for creating a backwarping object.
@@ -37,8 +34,9 @@ class backWarp(nn.Module):
         gridX, gridY = np.meshgrid(np.arange(W), np.arange(H))
         self.W = W
         self.H = H
-        self.gridX = torch.tensor(gridX, requires_grad=False, device=device)
-        self.gridY = torch.tensor(gridY, requires_grad=False, device=device)
+        self.device = device
+        self.gridX = torch.tensor(gridX, requires_grad=False, device=self.device)
+        self.gridY = torch.tensor(gridY, requires_grad=False, device=self.device)
 
     def forward(self, img, nd_flow):
         """
@@ -62,7 +60,7 @@ class backWarp(nn.Module):
         else:
             flow = nd_flow
         
-        flow = flow.to(device)
+        flow = flow.to(self.device)
         if (flow.shape[2] != img.shape[2]):
             flow = F.interpolate(flow, scale_factor=2, mode="bilinear",    # ASK IF RIGHT THING TO DO
                              align_corners=False)
@@ -79,5 +77,5 @@ class backWarp(nn.Module):
         grid = torch.stack((x, y), dim=3)
         # Sample pixels using bilinear interpolation.
         imgOut = torch.nn.functional.grid_sample(img, grid)
-        imgOut = imgOut.to(device)
+        imgOut = imgOut.to(self.device)
         return imgOut

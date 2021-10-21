@@ -12,13 +12,12 @@ import torch.nn.functional as F
 from .unet_model import UNet
 from .backwarp import backWarp
 
-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
 class HSTR_FSS():
-
-    def __init__(self):
+    def __init__(self, device):
+        self.device = device
         self.unet = UNet(15, 3)
-        self.unet.to(device)
+        self.unet.to(self.device)
 
     # def flow2rgb(self, flow_map_np):
     #     h, w, _ = flow_map_np.shape
@@ -65,7 +64,7 @@ class HSTR_FSS():
             flow_single = flow_single[np.newaxis, :]
             
             flow_batch = np.append(flow_batch, flow_single, axis=0)
-        return torch.tensor(flow_batch, dtype=torch.float, device=device)
+        return torch.tensor(flow_batch, dtype=torch.float, device=self.device)
 
     def intermediate_flow_est(self, x, t):
 
@@ -116,12 +115,12 @@ class HSTR_FSS():
         F_t_0, F_t_1 = self.intermediate_flow_est(       # Flow from t to 0 and flow from t to 1 using provided low fps video frames
             torch.cat((hr_F_0_1, hr_F_1_0), 1), 0.5)
 
-        F_t_0 = torch.from_numpy(F_t_0).to(device)
-        F_t_1 = torch.from_numpy(F_t_1).to(device)
+        F_t_0 = torch.from_numpy(F_t_0).to(self.device)
+        F_t_1 = torch.from_numpy(F_t_1).to(self.device)
 
         # Backwarping module
-        backwarp = backWarp(hr_img0.shape[3], hr_img0.shape[2], device)
-        backwarp.to(device)
+        backwarp = backWarp(hr_img0.shape[3], hr_img0.shape[2], self.device)
+        backwarp.to(self.device)
 
         #I0  = backwarp(I1, F_0_1)
 
@@ -170,15 +169,15 @@ if __name__ == '__main__':
     padding1 = nn.ReplicationPad2d((0, pad2, pad1, 0))
 
     img0_HR = torch.from_numpy(np.transpose(img0_HR, (2, 0, 1))).to(
-        device, non_blocking=True).unsqueeze(0).float() / 255.
+        self.device, non_blocking=True).unsqueeze(0).float() / 255.
     img1_HR = torch.from_numpy(np.transpose(img1_HR, (2, 0, 1))).to(
-        device, non_blocking=True).unsqueeze(0).float() / 255.
+        self.device, non_blocking=True).unsqueeze(0).float() / 255.
     img0_LR = torch.from_numpy(np.transpose(img0_LR, (2, 0, 1))).to(
-        device, non_blocking=True).unsqueeze(0).float() / 255.
+        self.device, non_blocking=True).unsqueeze(0).float() / 255.
     img1_LR = torch.from_numpy(np.transpose(img1_LR, (2, 0, 1))).to(
-        device, non_blocking=True).unsqueeze(0).float() / 255.
+        self.device, non_blocking=True).unsqueeze(0).float() / 255.
     img2_LR = torch.from_numpy(np.transpose(img2_LR, (2, 0, 1))).to(
-        device, non_blocking=True).unsqueeze(0).float() / 255.
+        self.device, non_blocking=True).unsqueeze(0).float() / 255.
 
     imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
     imgs = padding1(imgs)
