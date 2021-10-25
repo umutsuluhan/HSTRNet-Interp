@@ -120,7 +120,6 @@ class HSTR_FSS():
 
         # Backwarping module
         backwarp = backWarp(hr_img0.shape[3], hr_img0.shape[2], self.device)
-        backwarp.to(self.device)
 
         #I0  = backwarp(I1, F_0_1)
 

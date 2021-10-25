@@ -162,12 +162,12 @@ class VimeoDataset(Dataset):
                 tmp = img1_LR
                 img1_LR = img0_LR
                 img0_LR = tmp
-        img0_HR = torch.from_numpy(img0_HR.copy()).permute(2, 0, 1)
-        img1_HR = torch.from_numpy(img1_HR.copy()).permute(2, 0, 1)
-        gt = torch.from_numpy(gt.copy()).permute(2, 0, 1)
-        img0_LR = torch.from_numpy(img0_LR.copy()).permute(2, 0, 1)
-        img1_LR = torch.from_numpy(img1_LR.copy()).permute(2, 0, 1)
-        img2_LR = torch.from_numpy(img2_LR.copy()).permute(2, 0, 1)
+        img0_HR = torch.from_numpy(img0_HR.copy()).permute(2, 0, 1).to(self.device)
+        img1_HR = torch.from_numpy(img1_HR.copy()).permute(2, 0, 1).to(self.device)
+        gt = torch.from_numpy(gt.copy()).permute(2, 0, 1).to(self.device)
+        img0_LR = torch.from_numpy(img0_LR.copy()).permute(2, 0, 1).to(self.device)
+        img1_LR = torch.from_numpy(img1_LR.copy()).permute(2, 0, 1).to(self.device)
+        img2_LR = torch.from_numpy(img2_LR.copy()).permute(2, 0, 1).to(self.device)
         imgs_LR = torch.cat((img0_LR, img1_LR, img2_LR), 0)
         img0_LR, img1_LR, img2_LR = self.interpolation(imgs_LR)
         return torch.cat((img0_HR, img1_HR, gt, img0_LR, img1_LR, img2_LR), 0)
