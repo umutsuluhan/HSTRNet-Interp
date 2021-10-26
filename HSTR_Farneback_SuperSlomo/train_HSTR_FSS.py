@@ -50,7 +50,7 @@ def train(model):
 
     L1_lossFn = nn.L1Loss()
     params = model.return_parameters()
-    optimizer = optim.Adam(params, lr=0.0001)
+    optimizer = optim.Adam(params, lr=0.001)
     scheduler = optim.lr_scheduler.MultiStepLR(
         optimizer, milestones=[100, 150], gamma=0.1)
 
@@ -112,7 +112,7 @@ def train(model):
 
             end = time.time()
 
-            if(trainIndex % 500 == 0 and trainIndex != 0):
+            if(trainIndex % 1000 == 0 and trainIndex != 0):
 
                 print("Validating, Train Index: " + str(trainIndex))
                 logging.info("Validating, Train Index: " + str(trainIndex))
