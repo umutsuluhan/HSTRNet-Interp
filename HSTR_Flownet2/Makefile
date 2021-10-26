@@ -1,0 +1,9 @@
+main:
+	python3 test_video.py --videos videos/car_vid.mp4 videos/car_vid_2X_12fps.mp4
+train_FSS: 
+	python3 train_HSTR_FSS.py --data_root /home/ortak/mughees/datasets/vimeo_triplet
+
+train_RIFE:
+	python3 train_RIFE_HSTR.py --data_root /home/hus/Desktop/data/vimeo_triplet
+clean:
+	rm -rf __pycache__ ./model/__pycache_ project.mp4 logs/* model_dict/* train_log/

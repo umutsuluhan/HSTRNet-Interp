@@ -184,7 +184,7 @@ def validate(model, val_data, len_val, batch_size=1):
         psnr += float((10 * math.log10(1 / MSE_loss.item())))
         out_ssim += float(ssim(pred, gt))
 
-    return ((psnr / len_val) / batch_size) , ((val_loss / len_val) / batch_size), ((out_ssim / len_val) / batch_size)
+    return ((psnr / len_val) * batch_size) , ((val_loss / len_val) * batch_size), ((out_ssim / len_val) * batch_size)
 
 
 if __name__ == "__main__":
