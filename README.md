@@ -17,6 +17,7 @@ HSTR_Farneback_SuperSlomo/model/HSTR_LKSS.py --> Lucas Kanade + SuperSlomo kodu 
 HSTR_Farneback_SuperSlomo/model/backwarp.py --> Backwarping modülü  
 HSTR_Farneback_SuperSlomo/model/unet_model.py --> Unet modülü  
 HSTR_Farneback_SuperSlomo/model/unet_parts.py --> Unet helper modülü  
+HSTR_Farneback_SuperSlomo/model/pytorch_mssim --> SSIM calculation module  
 
 RIFE_HSTR --> RIFE'a 5 input verilen model  
 
