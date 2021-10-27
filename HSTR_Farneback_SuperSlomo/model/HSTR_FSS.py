@@ -9,8 +9,8 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
-from .unet_model import UNet
-from .backwarp import backWarp
+from unet_model import UNet
+from backwarp import backWarp
 
 
 class HSTR_FSS():
@@ -95,6 +95,8 @@ class HSTR_FSS():
         hr_F_0_1 = self.optical_flow_est(               # Flow from t=0 to t=1 (high sr, low fps video)
             torch.cat((hr_img0, hr_img1), 1))
         
+        print(hr_F_0_1.shape)
+        
         hr_F_0_1 = hr_F_0_1 * 2
 
         hr_F_1_0 = self.optical_flow_est(               # Flow from t=1 to t=0 (high sr, low fps video)
@@ -147,16 +149,16 @@ class HSTR_FSS():
         
 if __name__ == '__main__':
     img0_HR = cv2.imread(
-        "/home/hus/Desktop/repos/HSTRNet/images/original_vid/0.png")
+        "/home/hus/Desktop/data/vimeo_triplet/sequences/00001/0001/im1.png")
     img1_HR = cv2.imread(
-        "/home/hus/Desktop/repos/HSTRNet/images/original_vid/1.png")
+        "/home/hus/Desktop/data/vimeo_triplet/sequences/00001/0001/im3.png")
 
     img0_LR = cv2.imread(
-        "/home/hus/Desktop/repos/HSTRNet/images/2X_vid/0000000.png")
+        "/home/hus/Desktop/data/vimeo_triplet/sequences/00001/0001/im1.png")
     img1_LR = cv2.imread(
-        "/home/hus/Desktop/repos/HSTRNet/images/2X_vid/0000001.png")
+        "/home/hus/Desktop/data/vimeo_triplet/sequences/00001/0001/im2.png")
     img2_LR = cv2.imread(
-        "/home/hus/Desktop/repos/HSTRNet/images/2X_vid/0000002.png")
+        "/home/hus/Desktop/data/vimeo_triplet/sequences/00001/0001/im3.png")
 
     padding1_mult = math.floor(img0_HR.shape[0] / 32) + 1
     padding2_mult = math.floor(img0_HR.shape[1] / 32) + 1
@@ -167,20 +169,22 @@ if __name__ == '__main__':
     # Done before network call, otherwise slows down the network
     padding1 = nn.ReplicationPad2d((0, pad2, pad1, 0))
 
+    device = "cpu"
+
     img0_HR = torch.from_numpy(np.transpose(img0_HR, (2, 0, 1))).to(
-        self.device, non_blocking=True).unsqueeze(0).float() / 255.
+        device, non_blocking=True).unsqueeze(0).float() / 255.
     img1_HR = torch.from_numpy(np.transpose(img1_HR, (2, 0, 1))).to(
-        self.device, non_blocking=True).unsqueeze(0).float() / 255.
+        device, non_blocking=True).unsqueeze(0).float() / 255.
     img0_LR = torch.from_numpy(np.transpose(img0_LR, (2, 0, 1))).to(
-        self.device, non_blocking=True).unsqueeze(0).float() / 255.
+        device, non_blocking=True).unsqueeze(0).float() / 255.
     img1_LR = torch.from_numpy(np.transpose(img1_LR, (2, 0, 1))).to(
-        self.device, non_blocking=True).unsqueeze(0).float() / 255.
+        device, non_blocking=True).unsqueeze(0).float() / 255.
     img2_LR = torch.from_numpy(np.transpose(img2_LR, (2, 0, 1))).to(
-        self.device, non_blocking=True).unsqueeze(0).float() / 255.
+        device, non_blocking=True).unsqueeze(0).float() / 255.
 
     imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
     imgs = padding1(imgs)
-    model = HSTR_FSS()
+    model = HSTR_FSS(device)
     #model.eval()
 
     result = model.inference(imgs, []).cpu().detach().numpy()
