@@ -8,7 +8,7 @@ from PIL import Image
 
 
 
-device = "cuda"
+device = "cuda:1"
 
 def convert_to_torch(img):
     result = torch.from_numpy(np.transpose(img, (2, 0, 1))).to(
@@ -17,9 +17,7 @@ def convert_to_torch(img):
     return result
 
 def interpolate(img):
-    result = F.interpolate(img, scale_factor=0.25, mode="bicubic",                # DONT FORGET TO DELETE THIS
-                      align_corners=False)
-    result = F.interpolate(result, scale_factor=4, mode="bicubic",
+    result = F.interpolate(img, scale_factor=4, mode="bicubic",
                       align_corners=False)
     
     return result
@@ -74,12 +72,14 @@ def convertion(data_list):
         img2 = convert(img2_p)
         img2_s = img_s + "/im3.png"
         cv2.imwrite(img2_s, img2)
+    
+    print("Finished")
 
-data_path = "/home/hus/Desktop/data/vimeo_triplet/sequences/"                    # SET THIS TO 4X DOWNSAMPLED
-save_path = "/home/hus/Desktop/data/vimeo_triplet_lr/sequences/"
+data_path = "/home/ortak/mughees/datasets/vimeo_triplet/x4_downsampled_sequences/"   
+save_path = "/home/ortak/mughees/datasets/vimeo_triplet/vimeo_triplet_lr/sequences/"
 
-test_list = "/home/hus/Desktop/data/vimeo_triplet/tri_testlist.txt"
-train_list = "/home/hus/Desktop/data/vimeo_triplet/tri_trainlist.txt"
+test_list = "/home/ortak/mughees/datasets/vimeo_triplet/tri_testlist.txt"
+train_list = "/home/ortak/mughees/datasets/vimeo_triplet/tri_trainlist.txt"
 
-convertion(test_list)
 convertion(train_list)
+convertion(test_list)
