@@ -29,7 +29,7 @@ class VimeoDataset(Dataset):
         self.testlist_HR = []
         self.testlist_LR = []
         data_path_HR = os.path.join(self.data_root, "sequences/")
-        data_path_LR = os.path.join(self.data_root, "x4_downsampled_sequences/")
+        data_path_LR = os.path.join(self.data_root, "vimeo_triplet_lr/sequences/")
         train_path = os.path.join(self.data_root, 'tri_trainlist.txt')
         test_path = os.path.join(self.data_root, 'tri_testlist.txt')
         with open(train_path, 'r') as f:
@@ -89,38 +89,13 @@ class VimeoDataset(Dataset):
         img2_LR = cv2.imread(imgpaths_LR[2])
 
         return img0_HR, gt, img1_HR, img0_LR, img1_LR, img2_LR
-
-    def interpolation(self, imgs):
-        img0_LR = imgs[:3, :]
-        img1_LR = imgs[3:6, :]
-        img2_LR = imgs[6:9, :]
-
-        img0_LR = img0_LR.type(torch.float32)
-        img1_LR = img1_LR.type(torch.float32)
-        img2_LR = img2_LR.type(torch.float32)
-        
-        img0_LR = img0_LR.unsqueeze(0)
-        img0_LR = F.interpolate(img0_LR, scale_factor=4, mode='bicubic')
-    
-        img1_LR = img1_LR.unsqueeze(0)
-        img1_LR = F.interpolate(img1_LR, scale_factor=4, mode='bicubic')
-        
-        img2_LR = img2_LR.unsqueeze(0)
-        img2_LR = F.interpolate(img2_LR, scale_factor=4, mode='bicubic')
-
-        img0_LR = img0_LR.squeeze(0)
-        img1_LR = img1_LR.squeeze(0)
-        img2_LR = img2_LR.squeeze(0)
-
-        return img0_LR, img1_LR, img2_LR
-
     def __getitem__(self, index):
         img0_HR, gt, img1_HR, img0_LR, img1_LR, img2_LR = self.getimg(index)
 
         if self.dataset_name == 'train':
 
             img0_HR, gt, img1_HR = self.aug(img0_HR, gt, img1_HR, 256, 448)
-            img0_LR, img1_LR, img2_LR = self.aug(img0_LR, img1_LR, img2_LR, 64, 112)
+            img0_LR, img1_LR, img2_LR = self.aug(img0_LR, img1_LR, img2_LR, 256, 448)
             img0_HR = torch.from_numpy(img0_HR.copy()).permute(2, 0, 1)
             img1_HR = torch.from_numpy(img1_HR.copy()).permute(2, 0, 1)
             gt = torch.from_numpy(gt.copy()).permute(2, 0, 1)
@@ -128,9 +103,6 @@ class VimeoDataset(Dataset):
             img0_LR = torch.from_numpy(img0_LR.copy()).permute(2, 0, 1)
             img1_LR = torch.from_numpy(img1_LR.copy()).permute(2, 0, 1)
             img2_LR = torch.from_numpy(img2_LR.copy()).permute(2, 0, 1)
-
-            imgs_LR = torch.cat((img0_LR, img1_LR, img2_LR), 0) 
-            img0_LR, img1_LR, img2_LR = self.interpolation(imgs_LR)
 
             return torch.cat((img0_HR, img1_HR, gt, img0_LR, img1_LR, img2_LR), 0)
             if random.uniform(0, 1) < 0.5:
@@ -168,6 +140,4 @@ class VimeoDataset(Dataset):
         img0_LR = torch.from_numpy(img0_LR.copy()).permute(2, 0, 1).to(self.device)
         img1_LR = torch.from_numpy(img1_LR.copy()).permute(2, 0, 1).to(self.device)
         img2_LR = torch.from_numpy(img2_LR.copy()).permute(2, 0, 1).to(self.device)
-        imgs_LR = torch.cat((img0_LR, img1_LR, img2_LR), 0)
-        img0_LR, img1_LR, img2_LR = self.interpolation(imgs_LR)
         return torch.cat((img0_HR, img1_HR, gt, img0_LR, img1_LR, img2_LR), 0)

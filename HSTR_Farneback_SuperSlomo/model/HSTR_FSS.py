@@ -9,8 +9,8 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
-from unet_model import UNet
-from backwarp import backWarp
+from .unet_model import UNet
+from .backwarp import backWarp
 
 
 class HSTR_FSS():
@@ -94,8 +94,6 @@ class HSTR_FSS():
 
         hr_F_0_1 = self.optical_flow_est(               # Flow from t=0 to t=1 (high sr, low fps video)
             torch.cat((hr_img0, hr_img1), 1))
-        
-        print(hr_F_0_1.shape)
         
         hr_F_0_1 = hr_F_0_1 * 2
 
