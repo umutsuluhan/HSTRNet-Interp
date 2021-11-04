@@ -22,8 +22,8 @@ def img_to_jpg(img):
     test = test[0,:]
     test = test.cpu().detach().numpy()
     test = np.transpose(test, (1, 2, 0))
-    # test = 255 * (test - test.min()) / (test.max() - test.min())
-    # test = np.array(test, np.int)
+    test = 255 * (test - test.min()) / (test.max() - test.min())
+    test = np.array(test, np.int)
     return test
     
 

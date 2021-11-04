@@ -16,7 +16,7 @@ from backwarp import backWarp
 from RAFT.core.raft import RAFT
 #from pytorch_msssim import ssim
 
-class HSTR_FSS():
+class HSTR_RAFT():
     def __init__(self, device, args):
         self.device = device
         self.unet = UNet(15, 3)
@@ -25,15 +25,6 @@ class HSTR_FSS():
         self.flownet.to(device)
         self.unet.to(self.device)
 
-    # def flow2rgb(self, flow_map_np):
-    #     h, w, _ = flow_map_np.shape
-    #     rgb_map = np.ones((h, w, 3)).astype(np.float32)
-    #     normalized_flow_map = flow_map_np / (np.abs(flow_map_np).max())
-    
-    #     rgb_map[:, :, 0] += normalized_flow_map[:, :, 0]
-    #     rgb_map[:, :, 1] -= 0.5 * (normalized_flow_map[:, :, 0] + normalized_flow_map[:, :, 1])
-    #     rgb_map[:, :, 2] += normalized_flow_map[:, :, 1]
-    #     return rgb_map.clip(0, 1)
 
     def return_parameters(self):
         return list(self.unet.parameters())
@@ -51,10 +42,7 @@ class HSTR_FSS():
 
         return F_t_0, F_t_1
 
-    def inference(self, imgs, timestamps, training=False):
-
-        t = 0.5                        # Timestamp of the generated frame.
-
+    def inference(self, imgs, training=False):
         
         hr_img0 = imgs[:, :3]      # hr_img0 = hr(t-1)
         hr_img1 = imgs[:, 3:6]     # hr_img1 = hr(t+1)
@@ -173,15 +161,6 @@ if __name__ == '__main__':
         "/home/hus/Desktop/data/vimeo_triplet/sequences/00001/0001/im2.png")
     img2_LR = cv2.imread(
         "/home/hus/Desktop/data/vimeo_triplet/sequences/00001/0001/im3.png")
-
-    """padding1_mult = math.floor(img0_HR.shape[0] / 32) + 1
-    padding2_mult = math.floor(img0_HR.shape[1] / 32) + 1
-    pad1 = (32 * padding1_mult) - img0_HR.shape[0]
-    pad2 = (32 * padding2_mult) - img0_HR.shape[1]
-
-    # Padding to meet dimension requirements of the network
-    # Done before network call, otherwise slows down the network
-    padding1 = nn.ReplicationPad2d((0, pad2, pad1, 0))"""
                                                         
     device = "cpu"
 
@@ -197,11 +176,9 @@ if __name__ == '__main__':
         device, non_blocking=True).unsqueeze(0).float() / 255.
 
     imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
-    # imgs = padding1(imgs)
-    model = HSTR_FSS(device, args)
-    #model.eval()
+    model = HSTR_RAFT(device, args)
 
-    result = model.inference(imgs, []).cpu().detach().numpy()
+    result = model.inference(imgs).cpu().detach().numpy()
     result = result[0, :]
     result = np.transpose(result, (1, 2, 0))
     cv2.imshow("win", result)

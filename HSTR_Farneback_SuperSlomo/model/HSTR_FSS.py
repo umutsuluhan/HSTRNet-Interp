@@ -9,13 +9,18 @@ import numpy as np
 import sys
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
-from .unet_model import UNet
-from .backwarp import backWarp
-
+from unet_model import UNet
+from backwarp import backWarp
+from warplayer import warp
+from IFNet import IFNet
 
 class HSTR_FSS():
     def __init__(self, device):
         self.device = device
+        
+        self.flownet = IFNet()
+        self.flownet.to(device)
+        
         self.unet = UNet(15, 3)
         self.unet.to(self.device)
 
@@ -36,8 +41,6 @@ class HSTR_FSS():
 
         # Optical flow method which employs Farneback method to extract flow of each pixel in the image (dense optical flow).
 
-        x = F.interpolate(x, scale_factor=0.5, mode="bilinear",
-                          align_corners=False)
         img0 = (x[:, :3].cpu().numpy()*255).astype('uint8')
         img1 = (x[:, 3:].cpu().numpy()*255).astype('uint8')
 
@@ -78,6 +81,13 @@ class HSTR_FSS():
         F_t_1 = fCoeff[2] * F_0_1 + fCoeff[3] * F_1_0
 
         return F_t_0, F_t_1
+    
+    def convert(self, param):
+        return {
+        k.replace("module.", ""): v
+            for k, v in param.items()
+            if "module." in k
+        }
 
     def inference(self, imgs, timestamps, training=False):
 
@@ -92,45 +102,76 @@ class HSTR_FSS():
         
         # First bi-directional optical frames extracted for intermediate flow estimation
 
-        hr_F_0_1 = self.optical_flow_est(               # Flow from t=0 to t=1 (high sr, low fps video)
-            torch.cat((hr_img0, hr_img1), 1))
+        # hr_F_0_1 = self.optical_flow_est(               # Flow from t=0 to t=1 (high sr, low fps video)
+        #     torch.cat((hr_img0, hr_img1), 1))
         
-        hr_F_0_1 = hr_F_0_1 * 2
+        # # hr_F_0_1 = hr_F_0_1 * 2
 
-        hr_F_1_0 = self.optical_flow_est(               # Flow from t=1 to t=0 (high sr, low fps video)
-            torch.cat((hr_img1, hr_img0), 1))
+        # hr_F_1_0 = self.optical_flow_est(               # Flow from t=1 to t=0 (high sr, low fps video)
+        #     torch.cat((hr_img1, hr_img0), 1))
         
-        hr_F_1_0 = hr_F_1_0 * 2
+        # hr_F_1_0 = hr_F_1_0 * 2
 
         lr_F_1_0 = self.optical_flow_est(               # Flow from t=0 to t=1 (low sr, high fps video)
             torch.cat((lr_img1, lr_img0), 1))
         
-        lr_F_1_0 = lr_F_1_0 * 2
+        # lr_F_1_0 = lr_F_1_0 * 2
        
         lr_F_1_2 = self.optical_flow_est(               # Flow from t=2 to t=1 (low sr, high fps video)
             torch.cat((lr_img1, lr_img2), 1))
         
-        lr_F_1_2 = lr_F_1_2 * 2
+        # lr_F_1_2 = lr_F_1_2 * 2
 
-        F_t_0, F_t_1 = self.intermediate_flow_est(       # Flow from t to 0 and flow from t to 1 using provided low fps video frames
-            torch.cat((hr_F_0_1, hr_F_1_0), 1), 0.5)
+        self.flownet.load_state_dict(
+            self.convert(torch.load('/home/hus/Desktop/repos/HSTRNet/HSTR_Farneback_SuperSlomo/trained_model/train_log/flownet.pkl', map_location=device)))
 
-        F_t_0 = torch.from_numpy(F_t_0).to(self.device)
-        F_t_1 = torch.from_numpy(F_t_1).to(self.device)
+
+        hr_images = torch.cat((hr_img0, hr_img1), 1)
+
+        g_I0_F_t_0, g_I1_F_t_1 = self.flownet(hr_images)
+
+
+        gt = cv2.imread(
+            "/home/hus/Desktop/data/vimeo_triplet/sequences/00001/0001/im2.png")
+
+        gt = torch.from_numpy(np.transpose(gt, (2, 0, 1))).to(
+            device, non_blocking=True).unsqueeze(0).float() / 255.
+
+        psnr = -10 * math.log10(((gt - g_I0_F_t_0) * (gt - g_I0_F_t_0)).mean())
+        print(psnr)
+        
+        psnr = -10 * math.log10(((gt - g_I1_F_t_1) * (gt - g_I1_F_t_1)).mean())
+        print(psnr)
+
+        # print(len(flow_list))
+
+
+        # F_t_0 = flow_list
+        # F_t_0 = torch.from_numpy(F_t_0).to(self.device)
+        # F_t_1 = torch.from_numpy(F_t_1).to(self.device)
 
         # Backwarping module
         backwarp = backWarp(hr_img0.shape[3], hr_img0.shape[2], self.device)
 
         #I0  = backwarp(I1, F_0_1)
+        
+        # RIFE warp --> I1 = IO w F 1-->0
 
-        # Backwarp of I0 and F_t_0
-        g_I0_F_t_0 = backwarp(hr_img0, F_t_0)
-        # Backwarp of I1 and F_t_1
-        g_I1_F_t_1 = backwarp(hr_img1, F_t_1)
+        # # Backwarp of I0 and F_t_0
+        # g_I0_F_t_0 = warp(hr_img0, F_t_0)
+        # # Backwarp of I1 and F_t_1
+        # g_I1_F_t_1 = warp(hr_img1, F_t_1)
 
-        warped_lr_img1_0 = backwarp(lr_img0, lr_F_1_0)
-        warped_lr_img1_2 = backwarp(lr_img2, lr_F_1_2)
+        # warped_lr_img1_0 = backwarp(lr_img0, lr_F_1_0)
+        # warped_lr_img1_2 = backwarp(lr_img2, lr_F_1_2)
+        
+        warped_lr_img1_0 = warp(lr_img0, lr_F_1_0)
+        warped_lr_img1_2 = warp(lr_img2, lr_F_1_2)
 
+        psnr = -10 * math.log10(((lr_img1 - warped_lr_img1_0) * (lr_img1 - warped_lr_img1_2)).mean())
+        print(psnr)
+        
+        # Changes have been made but PSNR is still 24.87
 
         input_imgs = torch.cat(
             (warped_lr_img1_0,  lr_img1, warped_lr_img1_2, g_I0_F_t_0, g_I1_F_t_1), dim=1)
@@ -181,12 +222,12 @@ if __name__ == '__main__':
         device, non_blocking=True).unsqueeze(0).float() / 255.
 
     imgs = torch.cat((img0_HR, img1_HR, img0_LR, img1_LR, img2_LR), 1)
-    imgs = padding1(imgs)
+    # imgs = padding1(imgs)
     model = HSTR_FSS(device)
     #model.eval()
 
     result = model.inference(imgs, []).cpu().detach().numpy()
     result = result[0, :]
     result = np.transpose(result, (1, 2, 0))
-    cv2.imshow("win", result)
-    cv2.waitKey(10000)
+    # cv2.imshow("win", result)
+    # cv2.waitKey(10000)
