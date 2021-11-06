@@ -1,5 +1,0 @@
-SSIM:  [tensor(0.9401)]
-RMSE:  [0.02580182]
-val_loss:  [0.013810254271559354]
-PSNR_if_calcullated at the end:  31.766994503057315
-PSNR averaged:  [33.223772778982045]
