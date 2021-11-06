@@ -29,7 +29,7 @@ class VimeoDataset(Dataset):
         self.testlist_HR = []
         self.testlist_LR = []
         data_path_HR = os.path.join(self.data_root, "sequences/")
-        data_path_LR = os.path.join(self.data_root, "sequences/")
+        data_path_LR = os.path.join(self.data_root, "vimeo_triplet_lr/sequences/")
         train_path = os.path.join(self.data_root, 'tri_trainlist.txt')
         test_path = os.path.join(self.data_root, 'tri_testlist.txt')
         with open(train_path, 'r') as f:

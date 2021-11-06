@@ -58,12 +58,10 @@ class IFNet(nn.Module):
         self.block2 = IFBlock(13+4, c=90)
         self.block_tea = IFBlock(16+4, c=90)
         self.contextnet = Contextnet()
-        self.unet = Unet()
 
     def forward(self, x, scale=[4,2,1]):
         img0 = x[:, :3]
         img1 = x[:, 3:6]
-        gt = x[:, 6:] # In inference time, gt is None
         flow_list = []
         mask_list = []
         warped_img0 = img0

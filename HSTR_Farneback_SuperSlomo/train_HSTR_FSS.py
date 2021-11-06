@@ -7,15 +7,14 @@ import torch.nn.functional as F
 import numpy as np
 import random
 import time
-import datetime
 import math
 import logging
 
 from model.HSTR_FSS import HSTR_FSS
 from dataset import VimeoDataset, DataLoader
-from model.pytorch_msssim import ssim, ssim_matlab
+from model.pytorch_msssim import ssim
 
-device = "cpu"  # torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 
 
 def img_to_jpg(img):
@@ -23,8 +22,8 @@ def img_to_jpg(img):
     test = test[0, :]
     test = test.cpu().detach().numpy()
     test = np.transpose(test, (1, 2, 0))
-    test = 255 * (test - test.min()) / (test.max() - test.min())
-    test = np.array(test, np.int)
+    # test = 255 * (test - test.min()) / (test.max() - test.min())
+    # test = np.array(test, np.int)
     return test
 
 
@@ -62,7 +61,7 @@ def train(model):
 
     pretrained_dict = convert(
         torch.load(
-            "/home/hus/Desktop/repos/HSTRNet/HSTR_Farneback_SuperSlomo/trained_model/train_log/flownet.pkl",
+            "/home/mughees/Projects/HSTRNet/HSTR_Farneback_SuperSlomo/trained_model/train_log/flownet.pkl",
             map_location=device,
         )
     )
@@ -88,16 +87,13 @@ def train(model):
 
     # Below code is a test to check if validation works as expected.
 
-    psnr, ssim = validate(model, val_data, len_val)
+    # psnr, ssim = validate(model, val_data, len_val)
     # print(psnr)
     # print(ssim)
-    # print(ssim_mat)
 
     start = time.time()
 
     loss = 0
-    psnr_list = []
-    ssim_list = []
 
     for epoch in range(args.epoch):
 
@@ -148,9 +144,6 @@ def train(model):
                 with torch.no_grad():
                     psnr, ssim = validate(model, val_data, len_val, 6)
 
-                    psnr_list.append(psnr)
-                    ssim_list.append(ssim)
-
                     endVal = time.time()
 
                 print(
@@ -196,11 +189,11 @@ def train(model):
 
 
 def validate(model, val_data, len_val, batch_size=1):
+    model.flownet.eval()  # Don't know if necessary, can be removed if you wish
     model.unet.eval()
 
     psnr_list = []
     ssim_list = []
-    ssim_mat_list = []
 
     for trainIndex, data in enumerate(val_data):
 
@@ -209,7 +202,7 @@ def validate(model, val_data, len_val, batch_size=1):
         img0_HR = data[:, :3]
         gt = data[:, 6:9]
         img1_HR = data[:, 3:6]
-
+        
         img0_LR = data[:, 9:12]
         img1_LR = data[:, 12:15]
         img2_LR = data[:, 15:18]

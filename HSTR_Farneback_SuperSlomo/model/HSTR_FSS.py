@@ -79,22 +79,20 @@ class HSTR_FSS():
         lr_img1 = imgs[:, 9:12]    # lr_img1 = lr(t)
         lr_img2 = imgs[:, 12:15]   # lr_img2 = lr(t+1)   
         
+        # Flow of the low resolution images
         lr_F_1_0 = self.optical_flow_est(               
             torch.cat((lr_img1, lr_img0), 1))
         
         lr_F_1_2 = self.optical_flow_est(               
             torch.cat((lr_img1, lr_img2), 1))
         
-        # RIFE warp --> I1 = IO w F 1-->0
     
-        self.flownet.load_state_dict(
-            self.convert(torch.load('/home/hus/Desktop/repos/HSTRNet/HSTR_Farneback_SuperSlomo/trained_model/train_log/flownet.pkl', map_location=self.device)))
-
-
         hr_images = torch.cat((hr_img0, hr_img1), 1)
 
+        # Warped hr_images taken from IFNet
         warped_hr_img1_0, warped_hr_img1_2 = self.flownet(hr_images)
 
+        # Warping lr_images with RIFE warp module
         warped_lr_img1_0 = warp(lr_img0, lr_F_1_0)
         warped_lr_img1_2 = warp(lr_img2, lr_F_1_2)
 
