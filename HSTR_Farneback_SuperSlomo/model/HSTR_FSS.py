@@ -92,6 +92,7 @@ class HSTR_FSS():
         # Warped hr_images taken from IFNet
         warped_hr_img1_0, warped_hr_img1_2 = self.flownet(hr_images)
 
+
         # Warping lr_images with RIFE warp module
         warped_lr_img1_0 = warp(lr_img0, lr_F_1_0)
         warped_lr_img1_2 = warp(lr_img2, lr_F_1_2)

@@ -49,13 +49,6 @@ def train(model):
 
     len_val = dataset_val.__len__()
 
-    L1_lossFn = nn.L1Loss()
-    params = model.return_parameters()
-    optimizer = optim.Adam(params, lr=0.001)
-    scheduler = optim.lr_scheduler.MultiStepLR(
-        optimizer, milestones=[100, 150], gamma=0.1
-    )
-
     print("Training...")
     logging.info("Training is starting")
 
@@ -77,19 +70,26 @@ def train(model):
     #     print(torch.mean(v))
 
     # Strict is set to false to ignore unet parameters is missing error
-    model.flownet.load_state_dict(pretrained_dict, strict=False)
+    model.flownet.load_state_dict(pretrained_dict, strict=True)
 
     # Freezing flownet(IFNet) model to not train it.
     for k, v in model.flownet.named_parameters():
         v.requires_grad = False
+    
 
-    print("Validation is starting")
 
     # Below code is a test to check if validation works as expected.
 
     # psnr, ssim = validate(model, val_data, len_val)
     # print(psnr)
     # print(ssim)
+
+    L1_lossFn = nn.L1Loss()
+    params = model.return_parameters()
+    optimizer = optim.Adam(params, lr=0.001)
+    scheduler = optim.lr_scheduler.MultiStepLR(
+        optimizer, milestones=[100, 150], gamma=0.1
+    )
 
     start = time.time()
 
@@ -98,6 +98,8 @@ def train(model):
     for epoch in range(args.epoch):
 
         model.unet.train()
+        
+        loss = 0
 
         print("Epoch: ", epoch)
         logging.info("---------------------------------------------")
@@ -216,7 +218,7 @@ def validate(model, val_data, len_val, batch_size=1):
         psnr_list.append(psnr)
         ssim_list.append(ssim_)
 
-    return np.mean(psnr_list) * batch_size, np.mean(ssim_list) * batch_size
+    return np.mean(psnr_list), np.mean(ssim_list)
 
 
 if __name__ == "__main__":
