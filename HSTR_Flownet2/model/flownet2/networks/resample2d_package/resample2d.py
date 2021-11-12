@@ -49,4 +49,5 @@ class Resample2d(Module):
         input2 = x[:, 3:]
         
         input1_c = input1.contiguous()
-        return Resample2dFunction.apply(input1_c, input2, self.kernel_size, self.bilinear)
+        input2_c = input2.contiguous()
+        return Resample2dFunction.apply(input1_c, input2_c, self.kernel_size, self.bilinear)

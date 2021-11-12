@@ -1,7 +1,7 @@
 main:
 	python3 test_video.py --videos videos/car_vid.mp4 videos/car_vid_2X_12fps.mp4
-train_FSS: 
-	python3 train_HSTR_FSS.py --data_root /home/ortak/mughees/datasets/vimeo_triplet
+train: 
+	python3 train_v5.py --data_root /home/hus/Desktop/data/vimeo_triplet
 
 train_RIFE:
 	python3 train_RIFE_HSTR.py --data_root /home/hus/Desktop/data/vimeo_triplet
