@@ -14,18 +14,7 @@ from model.HSTR_Flownet_RIFE_v5 import HSTRNet
 from dataset import VimeoDataset, DataLoader
 from model.pytorch_msssim import ssim
 
-device = "cpu"  # torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-def img_to_jpg(img):
-    test = img[:1, :]
-    test = test[0, :]
-    test = test.cpu().detach().numpy()
-    test = np.transpose(test, (1, 2, 0))
-    test = 255 * (test - test.min()) / (test.max() - test.min())
-    test = np.array(test, np.int)
-    return test
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def convert(param):
     return {k.replace("module.", ""): v for k, v in param.items() if "module." in k}
@@ -58,18 +47,22 @@ def train(model):
     L1_lossFn = nn.L1Loss()
     params = model.return_parameters()
     optimizer = optim.Adam(params, lr=0.001)
-    scheduler = optim.lr_scheduler.MultiStepLR(
+    """ scheduler = optim.lr_scheduler.MultiStepLR(
         optimizer, milestones=[100, 150], gamma=0.1
-    )  # Look at this, plot learning rate
+    )  # Look at this, plot learning rate """
+
+    #learning_rates = []
 
     print("Training...")
     logging.info("Training is starting")
 
     model.ifnet.load_state_dict(
         convert(torch.load('/home/hus/Desktop/repos/HSTRNet/HSTR_Flownet2/model/RIFE_v5/train_log/flownet.pkl', map_location=device)))
+    model.ifnet.eval()
     
     model.contextnet.load_state_dict(
         convert(torch.load('/home/hus/Desktop/repos/HSTRNet/HSTR_Flownet2/model/RIFE_v5/train_log/contextnet.pkl', map_location=device)))
+    model.contextnet.eval()
 
     dict_ = torch.load("/home/hus/Desktop/repos/HSTRNet/HSTR_Flownet2/trained_models/FlowNet2_checkpoint.pth.tar")
     model.flownet2.load_state_dict(dict_["state_dict"])
@@ -143,11 +136,6 @@ def train(model):
             optimizer.step()
             loss += float(L1_loss.item())
 
-            print("Loss")
-            print(loss)
-
-            scheduler.step()
-
             end = time.time()
 
             if trainIndex % 1000 == 0 and trainIndex != 0:
@@ -183,6 +171,9 @@ def train(model):
                 )
                 start = time.time()
 
+            loss = 0
+
+        #scheduler.step()
         torch.save(model.unet.state_dict(), "model_dict/HSTR_unet_" + str(epoch) + ".pkl")
         
     val_data_last = DataLoader(dataset_val, batch_size=1, num_workers=0, shuffle=False)

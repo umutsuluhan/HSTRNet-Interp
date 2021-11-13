@@ -18,7 +18,7 @@ from model.RIFE_v5.RIFE import ContextNet, FusionNet
 
 class HSTRNet:
     def __init__(self, device, args):
-        self.device = "cpu"
+        self.device = device
         
         self.ifnet = IFNet()
         self.flownet2 = FlowNet2(args)
@@ -64,26 +64,26 @@ class HSTRNet:
         # self.unet.load_state_dict(pretrained_dict, strict=False)
 
         warped_hr_img1_0, warped_hr_img1_2, flow = self.ifnet(hr_images)        
-        warped_hr_img1_0 = warped_hr_img1_0.to(self.device)
-        warped_hr_img1_2 = warped_hr_img1_2.to(self.device)
+        """ warped_hr_img1_0 = warped_hr_img1_0.to(self.device)
+        warped_hr_img1_2 = warped_hr_img1_2.to(self.device) """
         
         lr_F_1_0 = self.flownet2(images_LR_1_0)
         lr_F_1_2 = self.flownet2(images_LR_1_2)
         
-        lr_F_1_0 = lr_F_1_0.to(self.device)
-        lr_F_1_2 = lr_F_1_2.to(self.device)
-        
+        """ lr_F_1_0 = lr_F_1_0.to(self.device)
+        lr_F_1_2 = lr_F_1_2.to(self.device) """
 
         warped_lr_img1_0 = warp(lr_img0, lr_F_1_0, self.device)
         warped_lr_img1_2 = warp(lr_img2, lr_F_1_2, self.device)
         
+
+        # Try below code without times 2 
         flow = F.interpolate(flow, scale_factor=2.0, mode="bilinear",
                              align_corners=False) * 2.0
         
         
         c0_HR = self.contextnet(hr_images[:, :3], flow[:, :2])
         c1_HR = self.contextnet(hr_images[:, 3:6], flow[:, 2:4])
-        
         c0_LR = self.contextnet(lr_img0, lr_F_1_0)
         c1_LR = self.contextnet(lr_img2, lr_F_1_2)
 
