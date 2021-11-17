@@ -29,7 +29,7 @@ class VimeoDataset(Dataset):
         self.testlist_HR = []
         self.testlist_LR = []
         data_path_HR = os.path.join(self.data_root, "sequences/")
-        data_path_LR = os.path.join(self.data_root, "sequences/")
+        data_path_LR = os.path.join(self.data_root, "vimeo_triplet_lr/sequences/")
         train_path = os.path.join(self.data_root, 'tri_trainlist.txt')
         test_path = os.path.join(self.data_root, 'tri_testlist.txt')
         with open(train_path, 'r') as f:
@@ -64,14 +64,17 @@ class VimeoDataset(Dataset):
             print('Number of validation samples in: ' + str(self.data_root.split("/")[-1]), len(self.meta_data_HR))
         self.nr_sample = len(self.meta_data_HR)
 
-    def aug(self, img0, gt, img1, h, w):
+    def aug(self, img0, gt, img1,img0_LR, img1_LR, img2_LR, h, w):
         ih, iw, _ = img0.shape
         x = np.random.randint(0, ih - h + 1)
         y = np.random.randint(0, iw - w + 1)
         img0 = img0[x:x+h, y:y+w, :]
         img1 = img1[x:x+h, y:y+w, :]
         gt = gt[x:x+h, y:y+w, :]
-        return img0, gt, img1
+        img0_LR = img0_LR[x:x+h, y:y+w, :]
+        img1_LR = img1_LR[x:x+h, y:y+w, :]
+        img2_LR = img2_LR[x:x+h, y:y+w, :]
+        return img0, gt, img1, img0_LR, img1_LR, img2_LR
 
     def getimg(self, index):
         img_path_HR = self.meta_data_HR[index]
@@ -96,8 +99,7 @@ class VimeoDataset(Dataset):
 
         if self.dataset_name == 'train':
 
-            img0_HR, gt, img1_HR = self.aug(img0_HR, gt, img1_HR, 256, 448)
-            img0_LR, img1_LR, img2_LR = self.aug(img0_LR, img1_LR, img2_LR, 256, 448)
+            img0_HR, gt, img1_HR, img0_LR, img1_LR, img2_LR = self.aug(img0_HR, gt, img1_HR,img0_LR, img1_LR, img2_LR, 128, 128)
             
             img0_HR = torch.from_numpy(img0_HR.copy()).permute(2, 0, 1)
             img1_HR = torch.from_numpy(img1_HR.copy()).permute(2, 0, 1)
@@ -137,6 +139,8 @@ class VimeoDataset(Dataset):
                 tmp = img1_LR
                 img1_LR = img0_LR
                 img0_LR = tmp
+        elif self.dataset_name == "validation":
+            img0_HR, gt, img1_HR, img0_LR, img1_LR, img2_LR = self.aug(img0_HR, gt, img1_HR,img0_LR, img1_LR, img2_LR, 256, 448)
         img0_HR = torch.from_numpy(img0_HR.copy()).permute(2, 0, 1).to(self.device)
         img1_HR = torch.from_numpy(img1_HR.copy()).permute(2, 0, 1).to(self.device)
         gt = torch.from_numpy(gt.copy()).permute(2, 0, 1).to(self.device)

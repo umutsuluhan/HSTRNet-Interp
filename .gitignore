@@ -16,3 +16,6 @@
 /HSTR_RAFT/model/__pycache__/backwarp.cpython-36.pyc
 /HSTR_Farneback_SuperSlomo/model_dict/
 /HSTR_Farneback_SuperSlomo/logs/
+/HSTR_Flownet2/model/RIFE_v5/train_log/
+/HSTR_Flownet2/model/flownet2/train_log/
+/HSTR_Flownet2/model_dict

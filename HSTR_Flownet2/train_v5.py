@@ -14,7 +14,16 @@ from model.HSTR_Flownet_RIFE_v5 import HSTRNet
 from dataset import VimeoDataset, DataLoader
 from model.pytorch_msssim import ssim
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+torch.cuda.set_device("cuda:1")
+
+def image_show(result):
+    result = result.cpu().detach().numpy()
+    result = result[0, :]
+    result = np.transpose(result, (1, 2, 0))
+    cv2.imshow("win", result)
+    cv2.waitKey(2000)
+
 
 def convert(param):
     return {k.replace("module.", ""): v for k, v in param.items() if "module." in k}
@@ -23,7 +32,7 @@ def img_to_flownet(img0, img1):
     img0 = img0.unsqueeze(0)
     img1 = img1.unsqueeze(0)
     images = torch.cat((img0, img1), 0)
-    images = images.permute(1, 2, 0, 3, 4).cuda()
+    images = images.permute(1, 2, 0, 3, 4).to(device)
     return images
 
 def train(model):
@@ -32,13 +41,13 @@ def train(model):
 
     dataset_train = VimeoDataset("train", args.data_root, device)
     train_data = DataLoader(
-        dataset_train, batch_size=12, num_workers=0, drop_last=True, shuffle=True
+        dataset_train, batch_size=96, num_workers=0, drop_last=True, shuffle=True
     )
 
     logging.info("Training dataset is loaded")
 
     dataset_val = VimeoDataset("validation", args.data_root, device)
-    val_data = DataLoader(dataset_val, batch_size=6, num_workers=0, shuffle=False)
+    val_data = DataLoader(dataset_val, batch_size=8, num_workers=0, shuffle=False)
 
     logging.info("Validation dataset is loaded")
 
@@ -57,14 +66,14 @@ def train(model):
     logging.info("Training is starting")
 
     model.ifnet.load_state_dict(
-        convert(torch.load('/home/hus/Desktop/repos/HSTRNet/HSTR_Flownet2/model/RIFE_v5/train_log/flownet.pkl', map_location=device)))
+        convert(torch.load('/home/mughees/Projects/HSTRNet/HSTR_Flownet2/model/RIFE_v5/train_log/flownet.pkl', map_location=device)))
     model.ifnet.eval()
     
     model.contextnet.load_state_dict(
-        convert(torch.load('/home/hus/Desktop/repos/HSTRNet/HSTR_Flownet2/model/RIFE_v5/train_log/contextnet.pkl', map_location=device)))
+        convert(torch.load('/home/mughees/Projects/HSTRNet/HSTR_Flownet2/model/RIFE_v5/train_log/contextnet.pkl', map_location=device)))
     model.contextnet.eval()
 
-    dict_ = torch.load("/home/hus/Desktop/repos/HSTRNet/HSTR_Flownet2/trained_models/FlowNet2_checkpoint.pth.tar")
+    dict_ = torch.load("/home/mughees/Projects/HSTRNet/HSTR_Flownet2/model/flownet2/train_log/FlowNet2_checkpoint.pth.tar")
     model.flownet2.load_state_dict(dict_["state_dict"])
     model.flownet2.eval()
 
@@ -77,11 +86,10 @@ def train(model):
         v.requires_grad = False
 
     
-
     # Below code is a test to check if validation works as expected.
 
     # print("Validation is starting")
-    # psnr, ssim = validate(model, val_data, len_val, batch_size=6)
+    # psnr, ssim = validate(model, val_data, len_val, 1)
     # print(psnr)
     # print(ssim)
 
@@ -94,6 +102,8 @@ def train(model):
     for epoch in range(args.epoch):
 
         model.unet.train()
+
+        loss = 0
 
         print("Epoch: ", epoch)
         logging.info("---------------------------------------------")
@@ -113,13 +123,13 @@ def train(model):
             hr_img0 = data[:, :3]
             gt = data[:, 6:9]
             hr_img1 = data[:, 3:6]
-
+            
             hr_images = torch.cat((hr_img0, hr_img1), 1)
 
             lr_img0 = data[:, 9:12]
             lr_img1 = data[:, 12:15]
             lr_img2 = data[:, 15:18]
-            
+        
             images_LR_1_0 = img_to_flownet(lr_img1, lr_img0)
             images_LR_1_2 = img_to_flownet(lr_img1, lr_img2)
             lr_images = torch.cat((images_LR_1_0, images_LR_1_2), 1)
@@ -138,13 +148,13 @@ def train(model):
 
             end = time.time()
 
-            if trainIndex % 1000 == 0 and trainIndex != 0:
+            if trainIndex % 300 == 0 and trainIndex != 0:
 
                 print("Validating, Train Index: " + str(trainIndex))
                 logging.info("Validating, Train Index: " + str(trainIndex))
 
                 with torch.no_grad():
-                    psnr, ssim = validate(model, val_data, len_val, 6)
+                    psnr, ssim = validate(model, val_data, len_val, 1)
 
                     psnr_list.append(psnr)
                     ssim_list.append(ssim)
@@ -171,14 +181,12 @@ def train(model):
                 )
                 start = time.time()
 
-            loss = 0
-
         #scheduler.step()
         torch.save(model.unet.state_dict(), "model_dict/HSTR_unet_" + str(epoch) + ".pkl")
         
     val_data_last = DataLoader(dataset_val, batch_size=1, num_workers=0, shuffle=False)
 
-    psnr, vLoss, ssim = validate(model, val_data_last, len_val)
+    psnr, vLoss, ssim = validate(model, val_data_last, len_val, 1)
     logging.info("------------------------------------------")
     logging.info(
         "Last evaluation --> PSNR:"
@@ -191,7 +199,7 @@ def train(model):
     torch.save(model.unet.state_dict(), "{}/final_unet.pkl".format("model_dict"))
 
 
-def validate(model, val_data, len_val, batch_size=1):
+def validate(model, val_data, len_val, batch_size):
     model.ifnet.eval()
     model.flownet2.eval()
     model.contextnet.eval()
@@ -200,7 +208,10 @@ def validate(model, val_data, len_val, batch_size=1):
     psnr_list = []
     ssim_list = []
 
-    for trainIndex, data in enumerate(val_data):
+    for valIndex, data in enumerate(val_data):
+        
+        if(valIndex % 100 == 0):
+            print("Validation index " + str(valIndex))
 
         data = data.to(device, non_blocking=True) / 255.0
 
@@ -233,7 +244,7 @@ def validate(model, val_data, len_val, batch_size=1):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="train")
-    parser.add_argument("--epoch", default=25, type=int)
+    parser.add_argument("--epoch", default=100, type=int)
     parser.add_argument("--data_root", required=True, type=str)
     parser.add_argument("--fp16", action="store_true", default="False", help="Run model in pseudo-fp16 mode (fp16 storage fp32 math).",)
     parser.add_argument("--rgb_max", type=float, default=255.0)

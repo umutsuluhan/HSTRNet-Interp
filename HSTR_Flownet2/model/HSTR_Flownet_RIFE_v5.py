@@ -26,7 +26,7 @@ class HSTRNet:
         self.unet = FusionNet()
         
         self.ifnet.to(self.device)
-        self.flownet2 = self.flownet2.cuda()
+        self.flownet2 = self.flownet2.to(self.device)
         self.contextnet.to(self.device)
         self.unet.to(self.device)
         
