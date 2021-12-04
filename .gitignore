@@ -18,4 +18,7 @@
 /HSTR_Farneback_SuperSlomo/logs/
 /HSTR_Flownet2/model/RIFE_v5/train_log/
 /HSTR_Flownet2/model/flownet2/train_log/
-/HSTR_Flownet2/model_dict
+/HSTR_Flownet2/model_dict/
+/HSTR_Flownet2/model_dict_vizdrone/
+/HSTR_Farneback_FusionNet/model_dict/
+/HSTR_Farneback_FusionNet/model_dict_vizdrone/

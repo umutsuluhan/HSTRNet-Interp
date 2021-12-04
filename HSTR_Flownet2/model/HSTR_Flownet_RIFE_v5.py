@@ -42,7 +42,6 @@ class HSTRNet:
 
     def inference(self, imgs, hr_images, lr_images, gt=None, training=False):
         
-        
         lr_img0 = imgs[:, :3]
         lr_img1 = imgs[:, 3:6]
         lr_img2 = imgs[:, 6:9]
@@ -62,39 +61,47 @@ class HSTRNet:
                 
         
         # self.unet.load_state_dict(pretrained_dict, strict=False)
-
-        warped_hr_img1_0, warped_hr_img1_2, flow = self.ifnet(hr_images)        
+        start_time_rife = time.time()
+        warped_hr_img1_0, warped_hr_img1_2, flow = self.ifnet(hr_images)     
+        rife_time = time.time() - start_time_rife
         """ warped_hr_img1_0 = warped_hr_img1_0.to(self.device)
         warped_hr_img1_2 = warped_hr_img1_2.to(self.device) """
         
+        start_time_flownet = time.time()
         lr_F_1_0 = self.flownet2(images_LR_1_0)
         lr_F_1_2 = self.flownet2(images_LR_1_2)
+        flownet_time = time.time() - start_time_flownet
         
         """ lr_F_1_0 = lr_F_1_0.to(self.device)
         lr_F_1_2 = lr_F_1_2.to(self.device) """
 
+        start_time_warp = time.time()
         warped_lr_img1_0 = warp(lr_img0, lr_F_1_0, self.device)
         warped_lr_img1_2 = warp(lr_img2, lr_F_1_2, self.device)
-        
+        warp_time = time.time() - start_time_warp
 
         # Try below code without times 2 
         flow = F.interpolate(flow, scale_factor=2.0, mode="bilinear",
                              align_corners=False) * 2.0
         
-        
+        start_time_context = time.time()
         c0_HR = self.contextnet(hr_images[:, :3], flow[:, :2])
         c1_HR = self.contextnet(hr_images[:, 3:6], flow[:, 2:4])
         c0_LR = self.contextnet(lr_img0, lr_F_1_0)
         c1_LR = self.contextnet(lr_img2, lr_F_1_2)
+        context_time = time.time() - start_time_context
 
+        start_time_fusion = time.time()        
         refine_output = self.unet(warped_lr_img1_0, lr_img1, warped_lr_img1_2, warped_hr_img1_0, warped_hr_img1_2, c0_HR, c1_HR, c0_LR, c1_LR)
+        fusion_time = time.time() - start_time_fusion
+        
         res = torch.sigmoid(refine_output[:, :3]) * 2 - 1
         mask = torch.sigmoid(refine_output[:, 3:4])
         merged_img = warped_hr_img1_0 * mask + warped_hr_img1_2 * (1 - mask)
         pred = merged_img + res
         pred = torch.clamp(pred, 0, 1)
 
-        return pred
+        return pred, rife_time, flownet_time, warp_time, context_time, fusion_time
 
         
 def img_to_flownet(img0, img1):

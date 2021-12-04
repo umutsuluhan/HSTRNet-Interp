@@ -1,0 +1,92 @@
+import os
+import cv2
+import torch
+import numpy as np
+import torch.nn.functional as F
+
+
+PATH = "/home/ortak/mughees/datasets/vizdrone_data_test/x4_down_sequences_val/"
+save_PATH = "/home/ortak/mughees/datasets/vizdrone_data_test/vizdrone_lr/"
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+
+def convert_to_torch(img):
+    result = torch.from_numpy(np.transpose(img, (2, 0, 1))).to(
+        device, non_blocking=True).unsqueeze(0).float() / 255.
+    
+    return result
+
+def interpolate(img):
+    result = F.interpolate(img, scale_factor=4, mode="bicubic",
+                      align_corners=False)
+    
+    return result
+
+def convert_to_np(img):
+    result = img.cpu().detach().numpy()
+    result = result[0, :]
+    result = np.transpose(result, (1, 2, 0))
+    
+    return result
+    
+def convert(img):
+    img = convert_to_torch(img)
+    img = interpolate(img)
+    img = convert_to_np(img)
+    img = normalization(img)
+    return img
+
+def normalization(img):
+    frame_normed = 255 * (img - img.min()) / (img.max() - img.min())
+    frame_normed = np.array(frame_normed, np.int)
+    
+    return frame_normed
+
+
+for path, dirs, files in os.walk(PATH, topdown=True):
+    print("NEXT")
+    save_dir = path[70:]
+    for dirr in sorted(dirs):
+        if not os.path.exists(os.path.join(save_PATH, dirr)):
+            os.mkdir(os.path.join(save_PATH, dirr))
+    for file in sorted(files):
+        full_file_path = os.path.join(path, file)
+        img = cv2.imread(full_file_path)
+        img = convert(img)
+        cv2.imwrite(os.path.join(save_PATH, save_dir, file), img)
+        # cv2.imshow("win", img)
+        # cv2.waitKey(1000)
+
+print("Finished")
+        
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

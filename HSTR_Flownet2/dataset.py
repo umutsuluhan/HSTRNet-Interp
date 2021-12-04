@@ -108,7 +108,6 @@ class VimeoDataset(Dataset):
             img0_LR = torch.from_numpy(img0_LR.copy()).permute(2, 0, 1)
             img1_LR = torch.from_numpy(img1_LR.copy()).permute(2, 0, 1)
             img2_LR = torch.from_numpy(img2_LR.copy()).permute(2, 0, 1)
-
             return torch.cat((img0_HR, img1_HR, gt, img0_LR, img1_LR, img2_LR), 0)
             if random.uniform(0, 1) < 0.5:
                 img0_HR = img0_HR[:, :, ::-1]
