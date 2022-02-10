@@ -1,6 +1,0 @@
-2021-12-04 12:36:41,831 - Device: cuda:3
-2021-12-04 12:36:41,850 - Training dataset is loaded
-2021-12-04 12:36:41,868 - Validation dataset is loaded
-2021-12-04 12:36:41,868 - Training is starting
-2021-12-04 12:36:44,665 - Pretrained models are loaded
-2021-12-04 12:36:44,666 - Required models are freezed
