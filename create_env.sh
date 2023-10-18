@@ -1,16 +1,17 @@
 #!/bin/bash
 
 
-#python -m venv release	
-#source $PWD/release/bin/activate
+python -m venv release	
+source $PWD/release/bin/activate
 
-#Dependencies
-#pip install --upgrade pip
-#pip install torch==1.12.0 torchvision==0.13.0 torchaudio==0.12.0
-#pip install mmcv==2.0.0rc4 -f https://download.openmmlab.com/mmcv/dist/cu102/torch1.12/index.html
-#pip install tqdm
-#pip install gdown
+# Dependencies
+pip install --upgrade pip
+pip install torch==1.12.0 torchvision==0.13.0 torchaudio==0.12.0
+pip install mmcv==2.0.0rc4 -f https://download.openmmlab.com/mmcv/dist/cu102/torch1.12/index.html
+pip install tqdm
+pip install gdown
 
+# Weights
 mkdir pretrained
 mkdir pretrained/vimeo
 mkdir pretrained/visdrone
