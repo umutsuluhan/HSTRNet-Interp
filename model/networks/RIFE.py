@@ -44,19 +44,18 @@ class Conv2(nn.Module):
 c = 16
 
 class ContextNet(nn.Module):
-    def __init__(self, warping):
+    def __init__(self):
         super(ContextNet, self).__init__()
-        self.warping = warping
         self.conv1 = Conv2(3, c)
         self.conv2 = Conv2(c, 2*c)
         self.conv3 = Conv2(2*c, 4*c)
         self.conv4 = Conv2(4*c, 8*c)
-        if not warping:
-            self.deformconv1 = DeformableConvBlock(c , "add")
-            self.deformconv2 = DeformableConvBlock(2*c , "add")
-            self.deformconv3 = DeformableConvBlock(4*c , "add")
-            self.deformconv4 = DeformableConvBlock(8*c , "add")
-            self.move_to_device()
+    
+        self.deformconv1 = DeformableConvBlock(c , "add")
+        self.deformconv2 = DeformableConvBlock(2*c , "add")
+        self.deformconv3 = DeformableConvBlock(4*c , "add")
+        self.deformconv4 = DeformableConvBlock(8*c , "add")
+        self.move_to_device()
 
     def move_to_device(self):
         self.deformconv1.to(device)
@@ -64,22 +63,6 @@ class ContextNet(nn.Module):
         self.deformconv3.to(device)
         self.deformconv4.to(device)
         
-    def warp_func(self, x, flow):
-        x = self.conv1(x)
-        f1 = warp(x, flow)
-        x = self.conv2(x)
-        flow = F.interpolate(flow, scale_factor=0.5, mode="bilinear", align_corners=False) * 0.5
-        f2 = warp(x, flow)
-
-        x = self.conv3(x)
-        flow = F.interpolate(flow, scale_factor=0.5, mode="bilinear", align_corners=False) * 0.5
-        f3 = warp(x, flow)
-
-        x = self.conv4(x)
-        flow = F.interpolate(flow, scale_factor=0.5, mode="bilinear", align_corners=False) * 0.5
-        f4 = warp(x, flow)
-        return f1, f2, f3, f4
-
     def deform_func(self, x, flow):
         x = self.conv1(x)
         f1 = self.deformconv1(x, flow)
@@ -98,16 +81,13 @@ class ContextNet(nn.Module):
         return f1, f2, f3, f4
 
     def forward(self, x, flow):
-        if self.warping:
-            f1, f2, f3, f4 = self.warp_func(x, flow)
-        else:
-            f1, f2, f3, f4 = self.deform_func(x, flow)
+        
+        f1, f2, f3, f4 = self.deform_func(x, flow)
 
-        if not self.warping:
-            f1 = F.interpolate(f1, scale_factor=2.0, mode="bilinear", align_corners=False) * 2.0
-            f2 = F.interpolate(f2, scale_factor=2.0, mode="bilinear", align_corners=False) * 2.0
-            f3 = F.interpolate(f3, scale_factor=2.0, mode="bilinear", align_corners=False) * 2.0
-            f4 = F.interpolate(f4, scale_factor=2.0, mode="bilinear", align_corners=False) * 2.0
+        f1 = F.interpolate(f1, scale_factor=2.0, mode="bilinear", align_corners=False) * 2.0
+        f2 = F.interpolate(f2, scale_factor=2.0, mode="bilinear", align_corners=False) * 2.0
+        f3 = F.interpolate(f3, scale_factor=2.0, mode="bilinear", align_corners=False) * 2.0
+        f4 = F.interpolate(f4, scale_factor=2.0, mode="bilinear", align_corners=False) * 2.0
         return [f1, f2, f3, f4]
 
 class FusionNet(nn.Module):
